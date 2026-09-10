@@ -175,6 +175,41 @@ function contrastRatio(a, b) {
 
 const DARK_INK = luminanceOf("#1b1f23");
 
+// ---- 主题 CSS 链接 ----------------
+// 宿主换主题时不会重载这个 iframe（它的 useMemo 依赖里没有 theme），
+// 只会推一条 hana.theme.changed（payload: { theme, cssUrl }）。
+// 所以主题链接得这里自己换。
+
+const THEME_CSS_PATH = "/api/plugins/theme.css";
+const AUTO_LIGHT_THEME = "warm-paper";
+const AUTO_DARK_THEME = "midnight";
+
+const darkQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+let currentTheme = "";
+let currentThemeCss = "";
+
+function themeCssFor(themeId) {
+  return `${THEME_CSS_PATH}?theme=${encodeURIComponent(themeId)}`;
+}
+
+function applyThemeCss(theme, cssUrl) {
+  const link = document.getElementById("po-theme-css");
+  if (!link) return;
+  const t = typeof theme === "string" ? theme.trim() : "";
+  if (t && t !== "auto") {
+    link.href = typeof cssUrl === "string" && cssUrl ? cssUrl : themeCssFor(t);
+    return;
+  }
+  link.href = themeCssFor(darkQuery && darkQuery.matches ? AUTO_DARK_THEME : AUTO_LIGHT_THEME);
+}
+
+function applyHostTheme(theme, cssUrl) {
+  if (typeof theme === "string" && theme.trim()) currentTheme = theme.trim();
+  if (typeof cssUrl === "string" && cssUrl) currentThemeCss = cssUrl;
+  applyThemeCss(currentTheme, currentThemeCss);
+}
+
 function syncTheme() {
   const cs = getComputedStyle(document.documentElement);
 
@@ -527,9 +562,46 @@ function render() {
 
 render();
 hana.ready();
+
+// 初始主题：具体主题由外壳直接写好（可能带 token），这里只纠正 auto
+currentTheme = (document.body.dataset.hanaTheme || "").trim();
+if (!currentTheme || currentTheme === "auto") {
+  applyThemeCss("auto", "");
+} else {
+  const l = document.getElementById("po-theme-css");
+  currentThemeCss = (l && l.href) || "";
+}
 syncTheme();
 
-// 宿主换主题时（html 的 data-theme / class / style 变化）重判亮暗与前景色。
+// 主题 CSS 换完（异步加载）之后重算亮暗与主按钮前景色
+const themeLink = document.getElementById("po-theme-css");
+if (themeLink) themeLink.addEventListener("load", syncTheme);
+window.setTimeout(syncTheme, 300);
+
+// 宿主推送主题变更：这是切主题时唯一可靠的信号
+window.addEventListener("message", (evt) => {
+  if (evt.source !== window.parent) return;
+  const msg = evt.data || {};
+  if (msg.protocol !== PROTOCOL || msg.version !== VERSION) return;
+  if (msg.kind !== "event" || msg.type !== "hana.theme.changed") return;
+  const payload = msg.payload || {};
+  applyHostTheme(payload.theme, payload.cssUrl);
+  window.setTimeout(syncTheme, 80);
+});
+
+// 系统亮暗变化：仅当主题是 auto 时需要跟着换
+if (darkQuery) {
+  const onScheme = () => {
+    if (!currentTheme || currentTheme === "auto") {
+      applyThemeCss("auto", "");
+      window.setTimeout(syncTheme, 80);
+    }
+  };
+  if (darkQuery.addEventListener) darkQuery.addEventListener("change", onScheme);
+  else if (darkQuery.addListener) darkQuery.addListener(onScheme);
+}
+
+// 兜底：宿主若直接改了文档根节点的主题属性
 try {
   new MutationObserver(syncTheme).observe(document.documentElement, {
     attributes: true,
