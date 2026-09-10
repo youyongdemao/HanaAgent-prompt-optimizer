@@ -17,8 +17,7 @@ const AUTO_DARK_THEME = "midnight";
 
 export default function registerPluginUiRoutes(app, ctx) {
   app.get("/card", (c) => c.html(renderShell(c, ctx, "card")));
-  // legacy：0.450.x 一类旧宿主不认 contributes.cards，只认 page/widget
-  app.get("/page", (c) => c.html(renderShell(c, ctx, "page")));
+  // legacy：0.450.x 一类旧宿主不认 contributes.cards，只认 widget/page
   app.get("/widget", (c) => c.html(renderShell(c, ctx, "widget")));
 }
 
