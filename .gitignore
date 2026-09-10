@@ -1,0 +1,13 @@
+# 依赖与构建产物（本插件无构建步骤，仅作兜底）
+node_modules/
+dist/
+*.log
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 本地打包产物
+*.zip

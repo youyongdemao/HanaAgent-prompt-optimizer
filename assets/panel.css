@@ -1,0 +1,455 @@
+/* assets/panel.css — 提示词优化卡片样式
+   视觉语言与 Session Insight (panel-v2.css) 对齐：
+   玻璃拟态面板 · 胶囊控件 · color-mix 派生的 accent 色阶
+   --r-lg 18 / --r-md 12 · cubic-bezier(.22,.75,.25,1) · 等宽字体记数字
+
+   主题跟随：颜色全部由宿主主题 CSS 派生。
+   - 亮暗由 JS 写 data-color-mode，暗色下把次级/弱化文字整体提亮一档，
+     否则青夜（#3B4A54 底）这类暗色主题里小字会糊。
+   - 主按钮用实心 accent 填充，前景色 --po-on-accent 由 JS 按对比度实时挑。
+*/
+
+:root {
+  /* 颜色变量由 HanaAgent 主题 CSS 提供，这里不重复声明，避免自引用导致整套样式失效 */
+  --font-ui: system-ui, -apple-system, "Segoe UI", "PingFang SC", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --r-lg: 18px;
+  --r-md: 12px;
+  --ease: cubic-bezier(.22, .75, .25, 1);
+  --po-glass-border: color-mix(in srgb, var(--text) 10%, transparent);
+  --po-glass-hi: color-mix(in srgb, #fff 28%, transparent);
+  --po-glow: color-mix(in srgb, var(--accent) 22%, transparent);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 42%, transparent) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--bg-card) 22%, transparent);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 28%, transparent), color-mix(in srgb, var(--accent) 52%, transparent));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent) 68%, transparent);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-button,
+*::-webkit-scrollbar-corner {
+  display: none;
+  background: transparent;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg, #f8f4ed);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  transition: background .24s, color .24s;
+}
+
+body[data-color-mode="dark"],
+:root[data-color-mode="dark"] {
+  color-scheme: dark;
+}
+
+/* ── 主体 ── */
+.po {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px 18px;
+
+  /* 语义文字层级：暗色下整体上提一档，保证小字可读 */
+  --po-ink: var(--text);
+  --po-ink-soft: var(--text-light);
+  --po-ink-faint: var(--text-muted);
+}
+
+body[data-color-mode="dark"] .po,
+:root[data-color-mode="dark"] .po {
+  --po-ink-soft: var(--text);
+  --po-ink-faint: var(--text-light);
+}
+
+/* ── 顶栏：提示语 + 更新 / GitHub ── */
+.po-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.po-hint {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--po-ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.po-top-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.po-tbtn {
+  position: relative;
+  overflow: hidden;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  border-radius: 999px;
+  padding: 4px 11px;
+  font: inherit;
+  font-size: 10.5px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  --gr: 96px;
+  border: 1px solid var(--po-glass-border);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--bg-card) 74%, transparent), color-mix(in srgb, var(--bg-card) 40%, transparent));
+  box-shadow: inset 0 1px 0 var(--po-glass-hi), 0 1px 5px rgba(0, 0, 0, .1);
+  color: var(--po-ink-soft);
+  transition: color .18s ease, transform .14s ease, border-color .16s, box-shadow .22s;
+}
+
+.po-tbtn:hover {
+  color: var(--po-ink);
+  border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+  box-shadow: 0 3px 14px var(--po-glow), inset 0 1px 0 var(--po-glass-hi);
+  transform: translateY(-1px);
+}
+
+.po-tbtn:active {
+  transform: translateY(0) scale(.94);
+}
+
+.po-tbtn:disabled {
+  opacity: .6;
+  cursor: default;
+  transform: none;
+}
+
+.po-tbtn .gh-ic {
+  width: 11px;
+  height: 11px;
+}
+
+.po-tbtn .ic.spin {
+  display: inline-block;
+  animation: poSpin .9s linear infinite;
+}
+
+@keyframes poSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── 场景胶囊 ── */
+.po-styles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.po-chip {
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 44%, transparent);
+  color: var(--po-ink-soft);
+  border-radius: 999px;
+  padding: 6px 15px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform .12s, background .16s, box-shadow .16s, color .16s;
+}
+
+.po-chip:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: 0 3px 14px var(--po-glow);
+}
+
+.po-chip:active {
+  transform: scale(.96);
+}
+
+.po-chip.is-on {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  color: color-mix(in srgb, var(--accent) 38%, var(--po-ink));
+  box-shadow: inset 0 1px 0 var(--po-glass-hi), 0 0 18px var(--po-glow);
+}
+
+/* ── 标签 ── */
+.po-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--po-ink-soft);
+}
+
+.po-count,
+.po-leninfo {
+  font: 400 10.5px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--po-ink-faint);
+}
+
+/* ── 输入 ── */
+.po-input,
+.po-extra,
+.po-result {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--bg-card) 55%, transparent);
+  color: var(--po-ink);
+  padding: 10px 12px;
+  font: inherit;
+  line-height: 1.6;
+  outline: none;
+  transition: border-color .16s, box-shadow .2s, background .2s;
+}
+
+.po-input {
+  min-height: 96px;
+  max-height: 320px;
+  resize: none;
+  overflow-y: auto;
+}
+
+.po-extra {
+  height: 36px;
+}
+
+.po-input:focus,
+.po-extra:focus {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent), 0 3px 16px var(--po-glow);
+}
+
+.po-input::placeholder,
+.po-extra::placeholder {
+  color: var(--po-ink-faint);
+}
+
+.po-result {
+  min-height: 120px;
+  max-height: 360px;
+  resize: none;
+  overflow-y: auto;
+  background: color-mix(in srgb, var(--text) 3.5%, transparent);
+  border-color: color-mix(in srgb, var(--text) 9%, transparent);
+}
+
+/* ── 按钮：玻璃胶囊 + 顶部扫光；光晕只做在按钮上 ── */
+.po-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.po-kbd {
+  margin-left: auto;
+  font: 400 10px var(--font-mono);
+  color: var(--po-ink-faint);
+}
+
+.po-btn {
+  position: relative;
+  overflow: hidden;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  border: 1px solid var(--po-glass-border);
+  border-radius: 999px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--bg-card) 74%, transparent), color-mix(in srgb, var(--bg-card) 40%, transparent));
+  box-shadow: inset 0 1px 0 var(--po-glass-hi), 0 1px 6px rgba(0, 0, 0, .12);
+  padding: 8px 18px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--po-ink-soft);
+  cursor: pointer;
+  white-space: nowrap;
+  --gr: 132px;
+  transition: color .2s ease, transform .16s ease, border-color .16s, box-shadow .25s;
+}
+
+.po-btn::before {
+  content: "";
+  position: absolute;
+  left: 8%;
+  top: 0;
+  width: 44%;
+  height: 1px;
+  z-index: 2;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 50%, transparent), transparent);
+  opacity: .35;
+  transition: opacity .2s, left .35s var(--ease);
+}
+
+.po-btn:hover {
+  color: var(--po-ink);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 3px 16px var(--po-glow), inset 0 1px 0 var(--po-glass-hi);
+  transform: translateY(-1px);
+}
+
+.po-btn:hover::before {
+  opacity: .9;
+  left: 28%;
+}
+
+.po-btn:active {
+  transform: translateY(0) scale(.94);
+  box-shadow: 0 1px 8px var(--po-glow);
+}
+
+.po-btn.primary {
+  background: linear-gradient(160deg, var(--accent), var(--accent-hover, var(--accent)));
+  border-color: color-mix(in srgb, var(--accent) 88%, transparent);
+  color: var(--po-on-accent, #fff);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 26%, transparent), 0 2px 12px var(--po-glow);
+}
+
+.po-btn.primary:hover {
+  color: var(--po-on-accent, #fff);
+  box-shadow: 0 5px 20px var(--po-glow), inset 0 1px 0 color-mix(in srgb, #fff 32%, transparent);
+}
+
+.po-btn:disabled {
+  opacity: .58;
+  cursor: default;
+  transform: none;
+}
+
+/* 按钮内的文字与图标必须浮在光晕之上 */
+.po-btn > .po-btn-tx,
+.po-tbtn > .po-btn-tx,
+.po-btn > svg,
+.po-tbtn > svg {
+  position: relative;
+  z-index: 2;
+}
+
+/* ── 按钮光晕层（只在按钮上出现） ── */
+.po-glow-spot {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    var(--gr, 130px) circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in srgb, var(--accent) 34%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 18%, transparent) 36%,
+    color-mix(in srgb, var(--accent) 7%, transparent) 64%,
+    transparent 88%);
+  opacity: 0;
+  transition: opacity .16s linear;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.po-border-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--ang, 0deg),
+    color-mix(in srgb, var(--accent) 40%, transparent) 0deg,
+    color-mix(in srgb, var(--accent) 14%, transparent) 26deg,
+    transparent 72deg,
+    transparent 288deg,
+    color-mix(in srgb, var(--accent) 14%, transparent) 334deg,
+    color-mix(in srgb, var(--accent) 40%, transparent) 360deg);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity .18s;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── 结果区 ── */
+.po-result-wrap {
+  display: grid;
+  gap: 9px;
+  border-top: 1px dashed color-mix(in srgb, var(--text) 14%, transparent);
+  padding-top: 12px;
+  animation: poLayerIn .38s var(--ease) both;
+}
+
+.po-result-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--po-ink-soft);
+}
+
+.po-result-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@keyframes poLayerIn {
+  from {
+    opacity: .35;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── 错误 ── */
+.po-error {
+  margin: 0;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--danger, #ef4444) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, transparent);
+  color: color-mix(in srgb, var(--danger, #ef4444) 80%, var(--po-ink));
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+/* 暗色下 danger 本身偏暗，掺白提升可读性 */
+body[data-color-mode="dark"] .po-error,
+:root[data-color-mode="dark"] .po-error {
+  background: color-mix(in srgb, var(--danger, #ef4444) 8%, transparent);
+  color: color-mix(in srgb, var(--danger, #ef4444) 45%, #fff);
+}
