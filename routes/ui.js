@@ -17,6 +17,8 @@ const AUTO_DARK_THEME = "midnight";
 
 export default function registerPluginUiRoutes(app, ctx) {
   app.get("/card", (c) => c.html(renderShell(c, ctx, "card")));
+  // legacy 兜底：旧版 HanaAgent 不认 contributes.cards，只认 page/widget
+  app.get("/widget", (c) => c.html(renderShell(c, ctx, "widget")));
 }
 
 /** 把宿主给的主题地址里的 theme 参数校正成指定主题（保留 token 等其它参数）。 */
