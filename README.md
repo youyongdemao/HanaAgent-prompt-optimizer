@@ -27,11 +27,6 @@
 
 Hanako 会调用 `optimize_prompt` 工具，把优化结果直接给你。
 
-**卡片顶栏两个按钮**
-
-- **更新**：读 GitHub Releases 比对版本，报告「已是最新 / 发现 vX.Y.Z」。仓库用 `githubRepo` 配置（默认 `youyongdemao/HanaAgent-prompt-optimizer`），未发布时会提示「仓库或 Release 尚未发布」。
-- **GitHub**：用系统浏览器打开仓库主页。
-
 ## 六种场景侧重
 
 | 场景 | 优化重点 |
