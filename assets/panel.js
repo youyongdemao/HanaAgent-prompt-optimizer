@@ -548,20 +548,29 @@ function render() {
   syncCount();
   requestAnimationFrame(fitHeight);
 
-  // 取一次本地元信息（版本 + 仓库地址），供 GitHub 按钮使用
-  hana.api
-    .fetch("meta")
-    .then((r) => (r.ok ? r.json() : null))
-    .then((data) => {
-      if (data && typeof data.repoUrl === "string" && data.repoUrl) repoUrl = data.repoUrl;
-    })
-    .catch(() => {
-      /* 取不到就沿用默认仓库地址 */
-    });
+  // 取一次本地元信息（版本 + 仓库地址），供 GitHub 按钮使用。
+  // 注意：hana.api.fetch 在缺 pluginSurfaceSession 时会「同步」抛错（不是返回 rejected Promise），
+  // 而它正在 render() 末尾、hana.ready() 之前——一抛就会把握手一起带走，
+  // 宿主则表现为 5 秒超时「加载失败」。所以这里必须包住。
+  try {
+    hana.api
+      .fetch("meta")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && typeof data.repoUrl === "string" && data.repoUrl) repoUrl = data.repoUrl;
+      })
+      .catch(() => {
+        /* 取不到就沿用默认仓库地址 */
+      });
+  } catch {
+    /* 没有 surface session 时忽略，不影响主流程 */
+  }
 }
 
-render();
+// 先报活再干活：宿主有 5 秒握手超时（pl = 5000，readyOnTimeout 默认 false），
+// ready 一旦被后面任何异常拦住，整个 widget 就会被判成「加载失败」。
 hana.ready();
+render();
 
 // 初始主题：具体主题由外壳直接写好（可能带 token），这里只纠正 auto
 currentTheme = (document.body.dataset.hanaTheme || "").trim();

@@ -46,8 +46,16 @@ function renderShell(c, ctx, surface) {
     : themeCssUrl(hostCss, AUTO_LIGHT_THEME);
 
   const assetBase = c.req.query("hana-asset-base") || `/api/plugins/${encodeURIComponent(ctx.pluginId)}/assets`;
-  const panelCssUrl = pluginAssetUrl(assetBase, "panel.css");
-  const panelJsUrl = pluginAssetUrl(assetBase, "panel.js");
+  // 资源地址必须带上宿主的 token。
+  // 桌面端主窗口是 loadFile 出来的，父页面 origin 不透明，宿主那个
+  // hana_plugin_assets_* cookie（SameSite=Strict）逃不进这种文档；
+  // 少了 token，panel.js 会 403，函数不执行、hana.ready 发不出去，
+  // 宿主 5 秒粻底判为「加载失败」。session-insight 就是靠改地址带 token 才稳的。
+  const token = String(c.req.query("token") || "");
+  const withToken = (url) =>
+    token ? `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}` : url;
+  const panelCssUrl = withToken(pluginAssetUrl(assetBase, "panel.css"));
+  const panelJsUrl = withToken(pluginAssetUrl(assetBase, "panel.js"));
   const title = "提示词优化";
 
   return `<!doctype html>
@@ -61,6 +69,15 @@ function renderShell(c, ctx, surface) {
 </head>
 <body data-hana-theme="${escapeAttr(theme)}" data-surface="${surface}">
   <div id="root" data-surface="${surface}"></div>
+  <script>
+    // 兜底：脚本若未执行就报错，至少把失败摆到界面上，方便定位
+    window.addEventListener("error", function (e) {
+      var root = document.getElementById("root");
+      if (root && !root.innerHTML) {
+        root.textContent = "面板加载失败：" + ((e && e.message) || "脚本错误");
+      }
+    });
+  </script>
   <script type="module" src="${escapeAttr(panelJsUrl)}"></script>
 </body>
 </html>`;
