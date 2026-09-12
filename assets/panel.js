@@ -307,6 +307,10 @@ function onPointerMove(evt) {
 
 const root = document.getElementById("root");
 
+// fitHeight 在 render() 里赋值，这里先占位，好让主题 CSS / load 之后的
+// 重新上报也能调到它（高度算不准时面板会白留一条或直接滚）。
+let fitHeight = () => {};
+
 function render() {
   if (!root) return;
 
@@ -314,15 +318,6 @@ function render() {
     <main class="po">
       <div class="po-top">
         <p class="po-hint">写粗糙版，优化成模型更懂的结构化提示词</p>
-        <div class="po-top-actions">
-          <button id="po-update" class="po-tbtn" type="button" title="从 GitHub Releases 检查新版本">
-            <span class="ic" id="po-update-ic">⇧</span><span class="po-btn-tx" id="po-update-tx">更新</span>
-          </button>
-          <button id="po-repo" class="po-tbtn" type="button" title="打开 GitHub 仓库主页">
-            <svg class="gh-ic" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15.08-.2.04-.42-.09-.57-.2-.22-.78-.71-1.54-2.04-.33-.57.11-1.06.39-1 .46.1 1.43.76 1.88 1.03.44.26 1.12.44 1.65.35.35-.05.58-.03.84.05.89.27 1.92.41 2.7.29C12.79 15 16 11.87 16 8c0-4.42-3.58-8-8-8z"/></svg>
-            <span class="po-btn-tx">GitHub</span>
-          </button>
-        </div>
       </div>
 
       <div class="po-styles" role="group" aria-label="优化场景">
@@ -361,7 +356,37 @@ function render() {
           <button id="po-again" class="po-btn" type="button"><span class="po-btn-tx">再优化一次</span></button>
         </div>
       </section>
+
+      <div class="po-foot">
+        <button id="po-update" class="po-tbtn" type="button" title="从 GitHub Releases 检查新版本">
+          <span class="ic" id="po-update-ic">⇧</span><span class="po-btn-tx" id="po-update-tx">更新</span>
+        </button>
+        <button id="po-repo" class="po-tbtn" type="button" title="打开 GitHub 仓库主页">
+          <svg class="gh-ic" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15.08-.2.04-.42-.09-.57-.2-.22-.78-.71-1.54-2.04-.33-.57.11-1.06.39-1 .46.1 1.43.76 1.88 1.03.44.26 1.12.44 1.65.35.35-.05.58-.03.84.05.89.27 1.92.41 2.7.29C12.79 15 16 11.87 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          <span class="po-btn-tx">GitHub</span>
+        </button>
+      </div>
     </main>
+
+    <div id="po-update-modal" class="po-modal" hidden>
+      <div class="po-modal-card" role="dialog" aria-modal="true" aria-labelledby="po-modal-title">
+        <div class="po-modal-head">
+          <span id="po-modal-title" class="po-modal-title">发现新版本</span>
+          <button id="po-modal-close" class="po-modal-x" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="po-modal-ver">
+          <b id="po-new-ver"></b>
+          <span id="po-old-ver"></span>
+        </div>
+        <pre id="po-modal-notes" class="po-notes" hidden></pre>
+        <p id="po-modal-state" class="po-modal-state" hidden></p>
+        <div class="po-modal-acts">
+          <button id="po-modal-release" class="po-btn" type="button" hidden><span class="po-btn-tx">Release 页</span></button>
+          <button id="po-modal-later" class="po-btn" type="button"><span class="po-btn-tx" id="po-modal-later-tx">稍后</span></button>
+          <button id="po-modal-apply" class="po-btn primary" type="button"><span class="po-btn-tx" id="po-modal-apply-tx">立即更新</span></button>
+        </div>
+      </div>
+    </div>
   `;
 
   const inputEl = document.getElementById("po-input");
@@ -381,14 +406,30 @@ function render() {
   const updateIc = document.getElementById("po-update-ic");
   const repoBtn = document.getElementById("po-repo");
 
+  const updateModal = document.getElementById("po-update-modal");
+  const modalNewVer = document.getElementById("po-new-ver");
+  const modalOldVer = document.getElementById("po-old-ver");
+  const modalNotes = document.getElementById("po-modal-notes");
+  const modalState = document.getElementById("po-modal-state");
+  const modalCloseBtn = document.getElementById("po-modal-close");
+  const modalReleaseBtn = document.getElementById("po-modal-release");
+  const modalLaterBtn = document.getElementById("po-modal-later");
+  const modalLaterTx = document.getElementById("po-modal-later-tx");
+  const modalApplyBtn = document.getElementById("po-modal-apply");
+  const modalApplyTx = document.getElementById("po-modal-apply-tx");
+
   let style = "general";
   let loading = false;
   let updateBusy = false;
   let repoUrl = DEFAULT_REPO_URL;
   let updateResetTimer = null;
 
-  const fitHeight = () => {
-    const h = Math.ceil(document.body.scrollHeight || 0);
+  fitHeight = () => {
+    // 取两者较大值：body 有 min-height:100%，只读 body 会在内容比视口矮时
+    // 回一个等于视口的高，宿主收到「高度没变」就不会再调窗口。
+    const h = Math.ceil(
+      Math.max(document.body.scrollHeight || 0, document.documentElement.scrollHeight || 0),
+    );
     if (h > 120) hana.ui.resize({ height: h });
   };
 
@@ -488,7 +529,7 @@ function render() {
       const data = await resp.json().catch(() => ({}));
       if (data?.ok && data.updateAvailable) {
         setUpdateLabel(`发现 v${data.latestVersion}`, false);
-        toast(`发现新版本 v${data.latestVersion}（当前 v${data.currentVersion}），点 GitHub 前往下载`, "info");
+        openUpdateModal(data);
       } else if (data?.ok) {
         setUpdateLabel("已是最新", false);
         toast(`已是最新版本 v${data.currentVersion}`, "success");
@@ -505,6 +546,91 @@ function render() {
       updateResetTimer = window.setTimeout(() => setUpdateLabel("更新", false), 3500);
     }
   };
+
+  // ── 更新弹窗 ──
+  // 触发时机：插件启动 / 打开卡片 / 刷新都会重新跑一遍 render，
+  // 自动检查统一挂在这里，没有新版本就什么都不显示。
+
+  let pendingUpdate = null;
+
+  const setModalState = (text, tone) => {
+    if (!text) {
+      modalState.hidden = true;
+      modalState.textContent = "";
+      modalState.removeAttribute("data-tone");
+      return;
+    }
+    modalState.hidden = false;
+    modalState.textContent = text;
+    if (tone) modalState.dataset.tone = tone;
+    else modalState.removeAttribute("data-tone");
+  };
+
+  const closeUpdateModal = () => {
+    updateModal.hidden = true;
+    pendingUpdate = null;
+    setModalState("");
+  };
+
+  const openUpdateModal = (info) => {
+    pendingUpdate = info;
+    modalNewVer.textContent = `v${info.latestVersion}`;
+    modalOldVer.textContent = `当前 v${info.currentVersion}`;
+    const notes = String(info.notes || "").trim();
+    modalNotes.textContent = notes;
+    modalNotes.hidden = !notes;
+    modalReleaseBtn.hidden = !info.url;
+    // 没挂 zip 的版本只能去 Release 页手动拿
+    modalApplyBtn.hidden = !info.canAutoInstall;
+    modalApplyTx.textContent = "立即更新";
+    modalLaterTx.textContent = "稍后";
+    setModalState("");
+    updateModal.hidden = false;
+    fitHeight();
+  };
+
+  const applyUpdate = async () => {
+    if (!pendingUpdate) return;
+    modalApplyBtn.disabled = true;
+    modalLaterBtn.disabled = true;
+    setModalState("正在下载并安装…", "busy");
+    try {
+      const resp = await hana.api.fetch("update-apply", { method: "POST" });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data?.ok) {
+        setModalState(data?.message || `更新失败（${resp.status}）`, "error");
+        return;
+      }
+      setModalState(data.message || `已更新到 v${data.toVersion}`, "ok");
+      modalApplyBtn.hidden = true;
+      modalLaterTx.textContent = "关闭";
+      toast(`已更新到 v${data.toVersion}`, "success");
+    } catch (err) {
+      setModalState(`更新失败：${String(err?.message || err)}`, "error");
+    } finally {
+      modalApplyBtn.disabled = false;
+      modalLaterBtn.disabled = false;
+    }
+  };
+
+  const autoCheckUpdate = async () => {
+    try {
+      const resp = await hana.api.fetch("update-check");
+      const data = await resp.json().catch(() => ({}));
+      if (!data?.ok || !data.updateAvailable) return;
+      openUpdateModal(data);
+    } catch {
+      /* 自动检查失败不打扰：网络断了、仓库改名之类都静默咽下 */
+    }
+  };
+
+  modalCloseBtn.addEventListener("click", closeUpdateModal);
+  modalLaterBtn.addEventListener("click", closeUpdateModal);
+  modalReleaseBtn.addEventListener("click", () => {
+    const url = pendingUpdate?.url;
+    if (url) hana.external.open({ url }).catch(() => {});
+  });
+  modalApplyBtn.addEventListener("click", applyUpdate);
 
   const openRepo = async () => {
     try {
@@ -565,6 +691,11 @@ function render() {
   } catch {
     /* 没有 surface session 时忽略，不影响主流程 */
   }
+
+  // 启动 / 打开卡片 / 刷新都会走到这里：静默查一次更新，有新版本才弹窗
+  window.setTimeout(() => {
+    void autoCheckUpdate();
+  }, 700);
 }
 
 // 先报活再干活：宿主有 5 秒握手超时（pl = 5000，readyOnTimeout 默认 false），
@@ -584,8 +715,13 @@ syncTheme();
 
 // 主题 CSS 换完（异步加载）之后重算亮暗与主按钮前景色
 const themeLink = document.getElementById("po-theme-css");
-if (themeLink) themeLink.addEventListener("load", syncTheme);
+if (themeLink) themeLink.addEventListener("load", () => {
+  syncTheme();
+  // 主题字体/行高会改变内容高度，换完得重新上报一次
+  requestAnimationFrame(() => fitHeight());
+});
 window.setTimeout(syncTheme, 300);
+window.addEventListener("load", () => requestAnimationFrame(() => fitHeight()));
 
 // 宿主推送主题变更：这是切主题时唯一可靠的信号
 window.addEventListener("message", (evt) => {

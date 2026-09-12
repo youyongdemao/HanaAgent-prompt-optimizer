@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "prompt-optimizer",
   "name": "提示词优化",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "把随手写下的基础提示词一键重写成更符合模型直觉的结构化提示词。支持通用、编程、写作、图像、分析、Agent 六种场景。",
   "minAppVersion": "0.159.0",
   "trust": "full-access",
@@ -22,13 +22,17 @@
   "network": {
     "allowedHosts": [
       "api.github.com",
-      "github.com"
+      "github.com",
+      "codeload.github.com",
+      "objects.githubusercontent.com",
+      "release-assets.githubusercontent.com",
+      "github-releases.githubusercontent.com"
     ],
     "methods": [
       "GET"
     ],
     "defaultTimeoutMs": 15000,
-    "maxResponseBytes": 4194304
+    "maxResponseBytes": 33554432
   },
   "contributes": {
     "widget": {
@@ -37,7 +41,9 @@
         "en": "Prompt Optimizer"
       },
       "route": "/widget",
-      "icon": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><path d=\"M5 19l1.6-4.5L15 6l3 3-8.5 8.4L5 19z\"/><path d=\"M18.5 4.2l1.3 1.3-2 2-1.3-1.3z\"/><path d=\"M11 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5\"/></svg>"
+      "icon": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><path d=\"M5 19l1.6-4.5L15 6l3 3-8.5 8.4L5 19z\"/><path d=\"M18.5 4.2l1.3 1.3-2 2-1.3-1.3z\"/><path d=\"M11 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5\"/></svg>",
+      "cardForm": "flush",
+      "titlebar": "translucent"
     },
     "configuration": {
       "title": "提示词优化设置",

@@ -24,32 +24,15 @@
 
 * {
   box-sizing: border-box;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--accent) 42%, transparent) transparent;
+  /* 卡片内不显示滚动条：滚动能力保留，只是不占位也不可见。
+     滚轮/触控板照常能滚，只是不出现那两条。 */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-*::-webkit-scrollbar-track {
-  background: color-mix(in srgb, var(--bg-card) 22%, transparent);
-  border-radius: 999px;
-}
-*::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 28%, transparent), color-mix(in srgb, var(--accent) 52%, transparent));
-  border: 2px solid transparent;
-  background-clip: padding-box;
-  border-radius: 999px;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent);
-}
-*::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--accent) 68%, transparent);
-  background-clip: padding-box;
-}
-*::-webkit-scrollbar-button,
-*::-webkit-scrollbar-corner {
+  width: 0;
+  height: 0;
   display: none;
-  background: transparent;
 }
 
 html,
@@ -57,6 +40,9 @@ body,
 #root {
   min-height: 100%;
   margin: 0;
+  max-width: 100%;
+  /* clip 而非 hidden：截断横向溢出，又不会把纵向可滚动性一起改掉 */
+  overflow-x: clip;
 }
 
 body {
@@ -78,11 +64,17 @@ body[data-color-mode="dark"],
   display: grid;
   gap: 12px;
   padding: 16px 18px 18px;
+  /* grid 子项默认 min-width:auto，长文案按钮会把列撑宽并顶出横向溢出 */
+  min-width: 0;
 
   /* 语义文字层级：暗色下整体上提一档，保证小字可读 */
   --po-ink: var(--text);
   --po-ink-soft: var(--text-light);
   --po-ink-faint: var(--text-muted);
+}
+
+.po > * {
+  min-width: 0;
 }
 
 body[data-color-mode="dark"] .po,
@@ -96,6 +88,7 @@ body[data-color-mode="dark"] .po,
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .po-hint {
@@ -109,10 +102,15 @@ body[data-color-mode="dark"] .po,
   white-space: nowrap;
 }
 
-.po-top-actions {
+/* ── 底栏：更新 / GitHub ──
+   不放顶栏：卡片的标题栏是浮在内容之上的一层，右上角住着宿主的窗口控件，
+   顶栏右侧的内容必被压住。靠右下角收尾，跟那层控件不在同一个象限。 */
+.po-foot {
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 6px;
-  flex: none;
+  min-width: 0;
 }
 
 .po-tbtn {
@@ -274,6 +272,7 @@ body[data-color-mode="dark"] .po,
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .po-kbd {
@@ -452,4 +451,140 @@ body[data-color-mode="dark"] .po-error,
 :root[data-color-mode="dark"] .po-error {
   background: color-mix(in srgb, var(--danger, #ef4444) 8%, transparent);
   color: color-mix(in srgb, var(--danger, #ef4444) 45%, #fff);
+}
+
+/* ── 更新弹窗 ──
+   只在检测到新版本时出现，盖住整张卡片的内容区。
+   内部的 [hidden] 一律强制隐藏，因为 .po-btn 这类自带 display 的元素
+   会把 hidden 自带的 display:none 顶掉。 */
+.po-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  background: color-mix(in srgb, var(--bg, #f8f4ed) 58%, transparent);
+  backdrop-filter: blur(12px) saturate(1.2);
+  animation: poModalIn .22s var(--ease) both;
+}
+
+@keyframes poModalIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.po-modal[hidden],
+.po-modal [hidden] {
+  display: none !important;
+}
+
+.po-modal-card {
+  width: 100%;
+  max-width: 420px;
+  max-height: 100%;
+  overflow-y: auto;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--po-glass-border);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--bg-card) 94%, transparent), color-mix(in srgb, var(--bg-card) 82%, transparent));
+  box-shadow: 0 20px 52px rgba(0, 0, 0, .3), inset 0 1px 0 var(--po-glass-hi);
+  animation: poModalCardIn .26s var(--ease) both;
+}
+
+@keyframes poModalCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.po-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.po-modal-title {
+  font-size: 13px;
+  color: var(--po-ink);
+}
+
+.po-modal-x {
+  appearance: none;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: var(--po-ink-faint);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color .16s, background .16s;
+}
+
+.po-modal-x:hover {
+  color: var(--po-ink);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.po-modal-ver {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.po-modal-ver b {
+  font: 600 20px var(--font-mono);
+  color: var(--accent);
+}
+
+.po-modal-ver span {
+  font: 400 11px var(--font-mono);
+  color: var(--po-ink-faint);
+}
+
+.po-notes {
+  margin: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 9px 11px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  color: var(--po-ink-soft);
+  font: 400 11.5px/1.6 var(--font-ui);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.po-modal-state {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--po-ink-soft);
+}
+
+.po-modal-state[data-tone="error"] {
+  color: color-mix(in srgb, var(--danger, #ef4444) 78%, var(--po-ink));
+}
+
+.po-modal-state[data-tone="ok"] {
+  color: color-mix(in srgb, var(--accent) 62%, var(--po-ink));
+}
+
+.po-modal-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
 }
