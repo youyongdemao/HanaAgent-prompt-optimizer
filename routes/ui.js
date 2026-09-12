@@ -67,7 +67,7 @@ function renderShell(c, ctx, surface) {
     token ? `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}` : url;
   // 资源版本戳：宿主会对 /assets/* 做缓存，不带这个参数时改了 css/js 也刷不出来。
   // 每次改动前端资源顺手改一次这个值。
-  const ASSET_VERSION = "0.2.0";
+  const ASSET_VERSION = "0.2.1";
   const withVersion = (url) => `${url}${url.includes("?") ? "&" : "?"}v=${ASSET_VERSION}`;
   const panelCssUrl = withVersion(withToken(pluginAssetUrl(assetBase, "panel.css")));
   const panelJsUrl = withVersion(withToken(pluginAssetUrl(assetBase, "panel.js")));

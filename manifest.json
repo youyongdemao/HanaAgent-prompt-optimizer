@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "prompt-optimizer",
   "name": "提示词优化",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "把随手写下的基础提示词一键重写成更符合模型直觉的结构化提示词。支持通用、编程、写作、图像、分析、Agent 六种场景。",
   "minAppVersion": "0.159.0",
   "trust": "full-access",

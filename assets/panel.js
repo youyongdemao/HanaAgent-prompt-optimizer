@@ -369,21 +369,14 @@ function render() {
     </main>
 
     <div id="po-update-modal" class="po-modal" hidden>
-      <div class="po-modal-card" role="dialog" aria-modal="true" aria-labelledby="po-modal-title">
-        <div class="po-modal-head">
-          <span id="po-modal-title" class="po-modal-title">发现新版本</span>
-          <button id="po-modal-close" class="po-modal-x" type="button" aria-label="关闭">×</button>
-        </div>
-        <div class="po-modal-ver">
-          <b id="po-new-ver"></b>
-          <span id="po-old-ver"></span>
-        </div>
-        <pre id="po-modal-notes" class="po-notes" hidden></pre>
-        <p id="po-modal-state" class="po-modal-state" hidden></p>
-        <div class="po-modal-acts">
-          <button id="po-modal-release" class="po-btn" type="button" hidden><span class="po-btn-tx">Release 页</span></button>
-          <button id="po-modal-later" class="po-btn" type="button"><span class="po-btn-tx" id="po-modal-later-tx">稍后</span></button>
-          <button id="po-modal-apply" class="po-btn primary" type="button"><span class="po-btn-tx" id="po-modal-apply-tx">立即更新</span></button>
+      <div class="po-modal-card" role="dialog" aria-modal="true" aria-labelledby="po-update-title">
+        <div id="po-update-mark" class="po-modal-mark">↻</div>
+        <h3 id="po-update-title">发现新版本</h3>
+        <p id="po-update-text" class="po-modal-text"></p>
+        <div id="po-update-notes" class="po-modal-notes" hidden></div>
+        <div class="po-modal-actions">
+          <button id="po-update-later" class="po-btn" type="button"><span class="po-btn-tx">稍后</span></button>
+          <button id="po-update-apply" class="po-btn po-modal-confirm" type="button"><span class="po-btn-tx" id="po-update-apply-tx">立即更新</span></button>
         </div>
       </div>
     </div>
@@ -407,16 +400,13 @@ function render() {
   const repoBtn = document.getElementById("po-repo");
 
   const updateModal = document.getElementById("po-update-modal");
-  const modalNewVer = document.getElementById("po-new-ver");
-  const modalOldVer = document.getElementById("po-old-ver");
-  const modalNotes = document.getElementById("po-modal-notes");
-  const modalState = document.getElementById("po-modal-state");
-  const modalCloseBtn = document.getElementById("po-modal-close");
-  const modalReleaseBtn = document.getElementById("po-modal-release");
-  const modalLaterBtn = document.getElementById("po-modal-later");
-  const modalLaterTx = document.getElementById("po-modal-later-tx");
-  const modalApplyBtn = document.getElementById("po-modal-apply");
-  const modalApplyTx = document.getElementById("po-modal-apply-tx");
+  const modalMark = document.getElementById("po-update-mark");
+  const modalTitle = document.getElementById("po-update-title");
+  const modalText = document.getElementById("po-update-text");
+  const modalNotes = document.getElementById("po-update-notes");
+  const modalLaterBtn = document.getElementById("po-update-later");
+  const modalApplyBtn = document.getElementById("po-update-apply");
+  const modalApplyTx = document.getElementById("po-update-apply-tx");
 
   let style = "general";
   let loading = false;
@@ -553,63 +543,135 @@ function render() {
 
   let pendingUpdate = null;
 
-  const setModalState = (text, tone) => {
-    if (!text) {
-      modalState.hidden = true;
-      modalState.textContent = "";
-      modalState.removeAttribute("data-tone");
-      return;
-    }
-    modalState.hidden = false;
-    modalState.textContent = text;
-    if (tone) modalState.dataset.tone = tone;
-    else modalState.removeAttribute("data-tone");
+  // 把 Release 正文（Markdown）重排成干净的结构。
+  // 不照搬编辑页里的原文：# 和 - 这些符号全部丢掉，层级交给样式表达；
+  // 首行版本号跳过（弹窗标题里已经写了），--- 分隔线直接扔。
+  const renderNotes = (markdown) => {
+    const frag = document.createDocumentFragment();
+    const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+    let list = null;
+    let seenHeadingOrItem = false;
+
+    const flushList = () => {
+      if (!list) return;
+      frag.appendChild(list);
+      list = null;
+    };
+
+    lines.forEach((raw, index) => {
+      const line = raw.trim();
+      if (!line) {
+        flushList();
+        return;
+      }
+      // 分隔线、纯符号行：不要
+      if (/^[-*_=~]{3,}$/.test(line)) return;
+      // 首行若是纯版本号，跳过（标题已经有）
+      if (index === 0 && /^v?\d+(\.\d+)*$/.test(line)) return;
+
+      const heading = /^#{1,6}\s*(.+)$/.exec(line);
+      if (heading) {
+        flushList();
+        const label = document.createElement("div");
+        label.className = "po-note-group";
+        label.textContent = heading[1].replace(/[:：]\s*$/, "").trim();
+        frag.appendChild(label);
+        seenHeadingOrItem = true;
+        return;
+      }
+
+      const item = /^[-*+]\s+(.+)$/.exec(line);
+      if (item) {
+        if (!list) {
+          list = document.createElement("ul");
+          list.className = "po-note-list";
+        }
+        const li = document.createElement("li");
+        li.textContent = item[1].trim();
+        list.appendChild(li);
+        seenHeadingOrItem = true;
+        return;
+      }
+
+      flushList();
+      const isMeta = /^sha256[:：]/i.test(line);
+      const p = document.createElement("p");
+      p.className = isMeta ? "po-note-meta" : "po-note-line";
+      p.textContent = line;
+      frag.appendChild(p);
+      seenHeadingOrItem = true;
+    });
+
+    flushList();
+    return seenHeadingOrItem ? frag : null;
   };
 
   const closeUpdateModal = () => {
-    updateModal.hidden = true;
-    pendingUpdate = null;
-    setModalState("");
+    updateModal.classList.remove("open");
+    window.setTimeout(() => {
+      updateModal.hidden = true;
+      pendingUpdate = null;
+    }, 220);
   };
 
   const openUpdateModal = (info) => {
     pendingUpdate = info;
-    modalNewVer.textContent = `v${info.latestVersion}`;
-    modalOldVer.textContent = `当前 v${info.currentVersion}`;
+    modalMark.textContent = "↻";
+    modalTitle.textContent = `发现新版本 v${info.latestVersion}`;
+    modalText.textContent = `当前版本 v${info.currentVersion}，现在更新吗？更新完成后页面会自动刷新。`;
     const notes = String(info.notes || "").trim();
-    modalNotes.textContent = notes;
-    modalNotes.hidden = !notes;
-    modalReleaseBtn.hidden = !info.url;
-    // 没挂 zip 的版本只能去 Release 页手动拿
-    modalApplyBtn.hidden = !info.canAutoInstall;
-    modalApplyTx.textContent = "立即更新";
-    modalLaterTx.textContent = "稍后";
-    setModalState("");
+    const notesFrag = notes ? renderNotes(notes) : null;
+    if (notesFrag) modalNotes.replaceChildren(notesFrag);
+    else modalNotes.replaceChildren();
+    modalNotes.hidden = !notesFrag;
+    // 没挂 zip 的版本只能去 Release 页手动拿，按钮文案跟着变
+    modalApplyTx.textContent = info.canAutoInstall ? "立即更新" : "去 Release 页";
+    modalApplyBtn.disabled = false;
+    modalApplyBtn.hidden = false;
+    modalLaterBtn.hidden = false;
     updateModal.hidden = false;
-    fitHeight();
+    requestAnimationFrame(() => updateModal.classList.add("open"));
   };
 
   const applyUpdate = async () => {
     if (!pendingUpdate) return;
+
+    if (!pendingUpdate.canAutoInstall) {
+      if (pendingUpdate.url) hana.external.open({ url: pendingUpdate.url }).catch(() => {});
+      return;
+    }
+
+    const target = pendingUpdate.latestVersion;
     modalApplyBtn.disabled = true;
-    modalLaterBtn.disabled = true;
-    setModalState("正在下载并安装…", "busy");
+    modalApplyTx.textContent = "更新中…";
+    modalLaterBtn.hidden = true;
+    modalText.textContent = `正在下载并安装 v${target}，完成后页面会自动刷新。`;
+
     try {
       const resp = await hana.api.fetch("update-apply", { method: "POST" });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok || !data?.ok) {
-        setModalState(data?.message || `更新失败（${resp.status}）`, "error");
+        modalMark.textContent = "!";
+        modalText.textContent = data?.message || `更新失败（${resp.status}）`;
+        modalApplyTx.textContent = "重试";
+        modalApplyBtn.disabled = false;
+        modalLaterBtn.hidden = false;
         return;
       }
-      setModalState(data.message || `已更新到 v${data.toVersion}`, "ok");
-      modalApplyBtn.hidden = true;
-      modalLaterTx.textContent = "关闭";
-      toast(`已更新到 v${data.toVersion}`, "success");
+      modalMark.textContent = "✓";
+      modalText.textContent = `已更新到 v${data.toVersion}，正在刷新…`;
+      // 带个时间戳参数重新进卡片，免得外壳 HTML 又被缓存顶回旧版
+      window.setTimeout(() => {
+        const next = new URL(window.location.href);
+        next.searchParams.set("po_reload", Date.now().toString(36));
+        window.location.replace(next.toString());
+      }, 900);
     } catch (err) {
-      setModalState(`更新失败：${String(err?.message || err)}`, "error");
-    } finally {
+      modalMark.textContent = "!";
+      modalText.textContent = `更新失败：${String(err?.message || err)}`;
+      modalApplyTx.textContent = "重试";
       modalApplyBtn.disabled = false;
-      modalLaterBtn.disabled = false;
+      modalLaterBtn.hidden = false;
     }
   };
 
@@ -624,11 +686,9 @@ function render() {
     }
   };
 
-  modalCloseBtn.addEventListener("click", closeUpdateModal);
   modalLaterBtn.addEventListener("click", closeUpdateModal);
-  modalReleaseBtn.addEventListener("click", () => {
-    const url = pendingUpdate?.url;
-    if (url) hana.external.open({ url }).catch(() => {});
+  updateModal.addEventListener("click", (ev) => {
+    if (ev.target === updateModal) closeUpdateModal();
   });
   modalApplyBtn.addEventListener("click", applyUpdate);
 
