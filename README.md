@@ -1,67 +1,62 @@
-# 提示词优化
-> 把随手写下的基础提示词，一键重写成结构清晰、更符合大语言模型直觉的高质量提示词。
+# 提示词优化（Prompt Optimizer）
 
-## 它解决什么
+把随手写下的基础提示词一键重写成结构清晰、模型更好执行的高质量提示词。Hana v2 应用。
 
-大多数人写提示词是这样：**想到哪写到哪，一句话丢过去**。模型能跑，但结果常常差一口气——因为缺了它真正需要的信息：目标、受众、约束、输出格式。
+## 功能
 
-这个插件做的事情很简单：**你写粗糙版，它替你补全成模型爱看的版本**。不是加几个形容词，而是按「角色 / 目标 / 要求 / 输出格式 / 边界」重新组织，把"写得好一点"换成可判断的标准。
+- 六种场景预设：通用 / 编程 / 写作 / 图像 / 分析 / Agent，每种带各自的侧重项
+- 卡片界面：写输入、切场景、补硬性要求，输出与原文长度对照，一键复制
+- 模型工具 `optimize_prompt`：Agent 在对话里可以说「帮我优化这段提示词」直接调用
+- 检查更新：比对指定 GitHub 仓库的 Release，有新版给更新日志与下载入口
+- 设置页：发布仓库地址、版本号、GitHub 与更新入口
 
-## 两种用法
+## 用法
 
-**① 卡片（手动）**
+卡片：把画布上的「提示词优化」放到需要的位置，直接写、直接点「优化」。`Ctrl + Enter` 是快捷键。
 
-打开「提示词优化」卡片：
+对话：让 Agent 调用工具，或直接说「帮我把这句话改成能喂给模型的提示词」。
 
-1. 选一个场景（通用 / 编程 / 写作 / 图像 / 分析 / Agent）
-2. 把粗糙的提示词填进去，可选加一句补充要求
-3. 点「优化」（或 `Ctrl + Enter`）
-4. 点「复制」，贴回对话输入框
-
-**② 工具（对话里直接说）**
-
-在对话里直接说：
-
-> 帮我优化这段提示词：讲清楚 PID 的积分项
-
-Hanako 会调用 `optimize_prompt` 工具，把优化结果直接给你。
-
-## 六种场景侧重
-
-| 场景 | 优化重点 |
-| --- | --- |
-| 通用 | 补齐任务、要求与期望输出 |
-| 编程 | 技术栈、输入输出、边界与异常、风格与测试要求 |
-| 写作 | 体裁、读者、篇幅结构、语气人称、禁忌 |
-| 图像 | 主体、场景、构图镜头、光线色调、风格媒介、排除项 |
-| 分析 | 数据来源、核心问题、指标定义、方法与假设、不确定性 |
-| Agent | 目标与成功标准、可用工具与限制、步骤、交付格式、停止条件 |
+设置：`设置 → 提示词优化`，改发布仓库（格式 `owner/repo`）或手动检查更新。
 
 ## 结构
 
 ```
-prompt-optimizer/
-├── manifest.json             # 卡片 + model.sample / network.fetch / external.open 声明
-├── lib/prompt.js             # 提示词工程核心（场景预设、系统提示词、结果解析）
-├── routes/ui.js              # 卡片外壳
-├── routes/optimize.js        # POST /optimize：调模型改写
-├── routes/update.js          # GET /meta · GET /update-check：版本与仓库信息
-├── tools/optimize_prompt.js  # Agent 可调用工具
-└── assets/panel.js|css       # 卡片前端（无构建步骤）
+manifest.json     应用清单（cards / settings / capabilities）
+index.js          入口：路由 + 模型工具
+lib/prompt.js     场景与系统提示词（纯逻辑）
+lib/update-check.js  Release 版本比对
+ui/               卡片页、设置页与静态资源
+sdk/              打包随附的 App SDK（不依赖宿主 node_modules）
 ```
 
-## 实现说明
+后端接口一律走 `/api/apps/prompt-optimizer/routes/`：
 
-- 模型调用走宿主 EventBus 的 `model:sample-text`（权限 `model.sample`），使用 Hana 当前配置的默认工具模型，**不需要额外填 API Key**。
-- 卡片是 WebView 卡片，纯原生 JS，**无 npm 依赖、无构建步骤**，拖进 Hana 即可用。
-- 复制用宿主 `clipboard.writeText`；仓库跳转用 `external.open`；更新检查用 `ctx.network.fetch` 访问 `api.github.com`。
-- 颜色全部从宿主主题变量派生，自动适配 Hana 的全部主题；暗色主题下会把次级文字整体提亮一档，主按钮前景色按 accent 亮度实时挑选。
-- 鼠标跟踪光晕只做在按钮上。
+| 路径 | 说明 |
+|------|------|
+| `POST /optimize` | 一次改写，返回 `{ ok, optimized, originalLength, optimizedLength }` |
+| `GET /meta` | 当前版本与发布仓库 |
+| `GET/POST /config` | 读写应用配置 |
+| `GET /update-check` | 与 GitHub Release 比对版本 |
 
-## 已知边界
+## 兼容性
 
-- 传入提示词上限 8000 字；模型输出上限默认 1200 tokens。
-- 优化结果依赖于 Hana 当前配置的工具模型，模型越强，改写质量越好。
+| 项目 | 值 |
+|------|-----|
+| 宿主 | Hana ≥ 0.1013.0 |
+| 声明能力 | `app/tools.expose-to-model`、`app/models.infer`、`app/ui.clipboard-write`、`app/ui.open-external` |
+| 网络 | 仅 `api.github.com`（GET），用于检查更新 |
+| 实测日期 | 2026-09-22 |
+
+## 依赖
+
+- 宿主已配置可用的 utility 模型（对应 `app/models.infer`），否则改写会明确报错
+- 检查更新需要能访问 `api.github.com`
+
+## 已知限制
+
+- 模型调用只走宿主 utility 配置，不能指定 provider / model / 密钥
+- 应用不能自我更新：v2 应用安装目录宿主只读，安装与升级走「设置 → 扩展」
+- 卡片不携带会话上下文，不跟随当前会话
 
 ## 许可
 

@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>提示词优化设置</title>
+  <script>
+    // 初始主题：宿主只在主题"变化"时推送、不推初始值，页面需要自行从 hana-css 加载一次，
+    // 之后由浏览器 SDK（hana.theme.subscribe）跟随变化。
+    (() => {
+      const advertisedUrl = new URLSearchParams(window.location.search).get("hana-css");
+      if (!advertisedUrl) return;
+      try {
+        const stylesheetUrl = new URL(advertisedUrl, window.location.href);
+        if (
+          stylesheetUrl.origin !== window.location.origin ||
+          (stylesheetUrl.protocol !== "http:" && stylesheetUrl.protocol !== "https:") ||
+          stylesheetUrl.pathname !== "/api/apps/theme.css" ||
+          !stylesheetUrl.searchParams.get("theme") ||
+          stylesheetUrl.username ||
+          stylesheetUrl.password ||
+          stylesheetUrl.hash
+        ) {
+          throw new Error("invalid Hana theme stylesheet URL");
+        }
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = stylesheetUrl.href;
+        document.head.appendChild(link);
+      } catch (error) {
+        console.warn("[prompt-optimizer] 无法加载 Hana 主题样式", error);
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="./assets/settings.css">
+  <link rel="stylesheet" href="./assets/update-notice.css">
+</head>
+<body data-hana-theme="inherit">
+  <div class="st-page">
+
+    <section class="st-block">
+      <h1 class="st-block-title">更新检查</h1>
+
+      <section class="st-section">
+        <h2>发布仓库</h2>
+        <ul class="st-list">
+          <li class="st-item">
+            <div class="st-item-main">
+              <div class="st-item-title">GitHub 仓库</div>
+              <div class="st-item-desc">检查更新时比对这个仓库的 Release，格式 owner/repo。</div>
+            </div>
+            <div class="st-item-ctl">
+              <input class="st-input" id="stRepo" type="text" placeholder="owner/repo" spellcheck="false" autocomplete="off">
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <div class="st-actions">
+        <button class="st-btn st-btn-primary" id="stSave" type="button">保存</button>
+        <button class="st-btn" id="stReset" type="button">恢复默认</button>
+        <span class="st-status" id="stStatus"></span>
+      </div>
+    </section>
+
+    <section class="st-block">
+      <h1 class="st-block-title">关于</h1>
+      <section class="st-section">
+        <ul class="st-list">
+          <li class="st-item">
+            <div class="st-item-main">
+              <div class="st-item-title">版本</div>
+            </div>
+            <div class="st-item-ctl">
+              <span class="st-item-value" id="aboutVersion">v–</span>
+              <button class="st-btn st-btn-sm" id="aboutUpdate" type="button">更新</button>
+            </div>
+          </li>
+          <li class="st-item">
+            <div class="st-item-main">
+              <div class="st-item-title">
+                <svg class="st-item-icon" viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15.08-.2.04-.42-.09-.57-.2-.22-.78-.71-1.54-2.04-.33-.57.11-1.06.39-1 .46.1 1.43.76 1.88 1.03.44.26 1.12.44 1.65.35.35-.05.58-.03.84.05.89.27 1.92.41 2.7.29C12.79 15 16 11.87 16 8c0-4.42-3.58-8-8-8z"/></svg>
+                GitHub
+              </div>
+            </div>
+            <div class="st-item-ctl">
+              <a class="st-item-link" id="aboutGithub" href="https://github.com/youyongdemao" rel="noopener noreferrer">github.com/youyongdemao</a>
+            </div>
+          </li>
+        </ul>
+      </section>
+    </section>
+
+  </div>
+
+  <script type="module" src="./assets/settings.js"></script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="640" height="360" role="img" aria-label="提示词优化">
+  <defs>
+    <linearGradient id="po-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e2936"/>
+      <stop offset="0.55" stop-color="#141c26"/>
+      <stop offset="1" stop-color="#0d1218"/>
+    </linearGradient>
+    <radialGradient id="po-glow" cx="0.5" cy="0.44" r="0.58">
+      <stop offset="0" stop-color="#7fa4ff" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#7fa4ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="po-accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a8c4ff"/>
+      <stop offset="1" stop-color="#6d8ff5"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="640" height="360" fill="url(#po-bg)"/>
+  <rect width="640" height="360" fill="url(#po-glow)"/>
+
+  <!-- 玻璃卡片 -->
+  <g>
+    <rect x="196" y="96" width="248" height="148" rx="22"
+          fill="#ffffff" fill-opacity="0.045"
+          stroke="#ffffff" stroke-opacity="0.16" stroke-width="1.2"/>
+    <rect x="196" y="96" width="248" height="148" rx="22"
+          fill="none" stroke="url(#po-accent)" stroke-opacity="0.22" stroke-width="1.2"/>
+
+    <!-- 文本行 -->
+    <g fill="#ffffff" fill-opacity="0.30">
+      <rect x="224" y="126" width="126" height="8" rx="4"/>
+      <rect x="224" y="150" width="164" height="8" rx="4"/>
+      <rect x="224" y="174" width="98" height="8" rx="4"/>
+      <rect x="224" y="198" width="140" height="8" rx="4" fill-opacity="0.18"/>
+    </g>
+
+    <!-- 改写笔 -->
+    <g stroke="url(#po-accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M360 210l4.2-11.8L392 170l7.8 7.8-27.8 27.8L360 210z"/>
+      <path d="M398.4 164.2l3.4 3.4-4.6 4.6-3.4-3.4z"/>
+    </g>
+  </g>
+
+  <text x="320" y="292" text-anchor="middle"
+        font-family="'Segoe UI','Microsoft YaHei',system-ui,sans-serif"
+        font-size="21" font-weight="600" letter-spacing="3"
+        fill="#ffffff" fill-opacity="0.86">提示词优化</text>
+  <text x="320" y="316" text-anchor="middle"
+        font-family="'Segoe UI','Microsoft YaHei',system-ui,sans-serif"
+        font-size="11" letter-spacing="2.4"
+        fill="#ffffff" fill-opacity="0.34">PROMPT OPTIMIZER</text>
+</svg>
