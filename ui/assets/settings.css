@@ -266,31 +266,3 @@ body {
 .st-item.sub { padding-left: 30px; }
 .st-item.sub::before { left: 30px; }
 .st-item.sub .st-item-title { font-size: 12px; color: var(--text-light, var(--text)); }
-/* 仓库地址输入框 */
-.st-input {
-  width: 220px;
-  max-width: 100%;
-  border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg-card, #fff) 70%, transparent);
-  color: var(--text);
-  padding: 5px 9px;
-  font: inherit;
-  font-size: 12px;
-  text-align: right;
-}
-
-.st-input:focus {
-  outline: none;
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
-}
-
-.st-input::placeholder {
-  color: var(--text-light, var(--text));
-  opacity: .6;
-}
-
-@media (max-width: 520px) {
-  .st-input { width: 150px; }
-}

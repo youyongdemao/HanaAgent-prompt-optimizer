@@ -7,7 +7,6 @@
 //   update-apply（下载 zip 覆盖插件目录）            →  删除：v2 应用目录宿主只读，更新走「设置 → 扩展」
 import { dirname, join } from "node:path";
 import { readFileSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { defineApp } from "./sdk/app-contract/server-client.js";
@@ -27,13 +26,8 @@ import { registerUpdateRoutes } from "./lib/update-check.js";
 export const name = "prompt-optimizer";
 
 const APP_DIR = dirname(fileURLToPath(import.meta.url));
+// 仓库地址写死在这里：用户不需要知道、也不该改它
 const DEFAULT_REPO = "youyongdemao/HanaAgent-prompt-optimizer";
-
-/** owner/repo 形状的仓库名；不合法时返回 null，由调用方回落到默认值 */
-function normalizeRepo(value) {
-  const text = typeof value === "string" ? value.trim() : "";
-  return /^[\w.-]+\/[\w.-]+$/.test(text) ? text : null;
-}
 
 function readVersion() {
   try {
@@ -42,32 +36,6 @@ function readVersion() {
   } catch {
     return "0.0.0";
   }
-}
-
-/** 应用自管配置：dev 期是 dataDir/config.json（宿主保证可写） */
-async function readConfig(sdk) {
-  try {
-    const raw = await readFile(join(sdk.dataDir, "config.json"), "utf8");
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-async function writeConfig(sdk, patch) {
-  const current = await readConfig(sdk);
-  const next = { ...current, ...patch };
-  for (const key of Object.keys(next)) {
-    if (next[key] === undefined || next[key] === null || next[key] === "") delete next[key];
-  }
-  try {
-    await mkdir(sdk.dataDir, { recursive: true });
-    await writeFile(join(sdk.dataDir, "config.json"), JSON.stringify(next, null, 2), "utf8");
-  } catch (error) {
-    await sdk.logger.warn(`config write failed: ${error?.message ?? error}`);
-  }
-  return next;
 }
 
 /** 一次模型改写：v2 只开 sdk.models.utility，不接受 provider/key/endpoint。 */
@@ -88,38 +56,22 @@ export default defineApp(async (sdk) => {
 
   const ctx = {
     appDir: APP_DIR,
-    dataDir: sdk.dataDir,
     logger: sdk.logger,
     network: { fetch: (input, init) => sdk.network.fetch(input, init) },
-    readConfig: () => readConfig(sdk),
   };
 
   await sdk.routes.register((app) => {
     app.get("/health", (c) => c.json({ ok: true, app: "prompt-optimizer" }));
 
-    // 卡片启动时取一次：当前版本 + 仓库地址（纯本地，不联网）
-    app.get("/meta", async (c) => {
-      const cfg = await readConfig(sdk);
-      const repo = normalizeRepo(cfg.githubRepo) ?? DEFAULT_REPO;
-      return c.json({ ok: true, version: readVersion(), repo, repoUrl: `https://github.com/${repo}` });
-    });
-
-    // 设置页读写配置
-    app.get("/config", async (c) => c.json({ ok: true, config: await readConfig(sdk) }));
-    app.post("/config", async (c) => {
-      let body = {};
-      try {
-        body = await c.req.json();
-      } catch {
-        body = {};
-      }
-      const repo = normalizeRepo(body?.githubRepo);
-      if (body?.githubRepo != null && String(body.githubRepo).trim() !== "" && !repo) {
-        return c.json({ ok: false, code: "BAD_REPO", message: "仓库格式应为 owner/repo。" }, 400);
-      }
-      const saved = await writeConfig(sdk, { githubRepo: repo ?? undefined });
-      return c.json({ ok: true, config: saved });
-    });
+    // 设置页 / 卡片取一次：当前版本 + 仓库地址（纯本地，不联网）
+    app.get("/meta", (c) =>
+      c.json({
+        ok: true,
+        version: readVersion(),
+        repo: DEFAULT_REPO,
+        repoUrl: `https://github.com/${DEFAULT_REPO}`,
+      }),
+    );
 
     // 流式改写：结果边生成边推给卡片。模型用宿主当前焦点模型（流式必须显式指定
     // provider/model，不能像 utility 那样省）。事件按 NDJSON 一行一个往下发。
