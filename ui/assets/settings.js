@@ -4,8 +4,12 @@
 import { hana } from "./sdk.js";
 import { apiFetch } from "./app-api.js";
 import { openUpdateNotice } from "./update-notice.js";
+import { initHostThemeSync } from "./theme-sync.js";
 
 hana.ready();
+
+// 主题跟随宿主窗口：与其它页面共用同一套，不各自读 iframe URL 里的初值
+initHostThemeSync();
 
 const $ = (id) => document.getElementById(id);
 
