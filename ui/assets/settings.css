@@ -1,4 +1,4 @@
-/* assets/settings.css — Session Insight 设置页
+/* assets/settings.css — 提示词优化设置页
    颜色与字体变量由 HanaAgent 主题注入（页面在 head 里自行加载 hana-css）。
    形态沿用宿主设置页的原生布局：分区标题 → 说明 → 若干设置行（左侧标题加副说明，右侧控件）→ 操作按钮。 */
 
@@ -120,12 +120,6 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* 标题前的图标：跟文字同色，垂直居中 */
-.st-item-icon {
-  flex: 0 0 auto;
-  opacity: .85;
-}
-
 /* 右侧的值（如版本号）：弱化色，与标签区分 */
 .st-item-value {
   font-size: 12px;
@@ -146,6 +140,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  font-size: 12px;
   color: var(--text-muted);
   text-decoration: none;
   cursor: pointer;
