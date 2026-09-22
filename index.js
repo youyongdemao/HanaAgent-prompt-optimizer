@@ -191,6 +191,8 @@ export default defineApp(async (sdk) => {
           };
           let finished = false;
           let accumulated = "";
+          // 先报一个 start，前端据此确认流已建立
+          push({ requestId, type: "start" });
           try {
             for await (const event of sdk.models.streamEvents(
               {
