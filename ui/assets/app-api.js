@@ -6,17 +6,21 @@ export function apiUrl(path) {
   return `${location.origin}/api/apps/${APP_ID}/routes/${path}`;
 }
 
+export function appHeaders(extra = {}) {
+  const headers = new Headers(extra || {});
+  const ss = new URLSearchParams(location.search).get("appSurfaceSession") || "";
+  if (ss) headers.set("X-Hana-App-Surface-Session", ss);
+  return headers;
+}
+
 /**
  * 调用应用自己的后端。
  * 返回解析好的 JSON；非 2xx 抛错，并尽量把服务端给的中文 message 带出来。
  */
 export async function apiFetch(path, init = {}, timeoutMs = 8000) {
-  const ss = new URLSearchParams(location.search).get("appSurfaceSession") || "";
-  const headers = new Headers(init.headers || {});
-  if (ss) headers.set("X-Hana-App-Surface-Session", ss);
   const res = await fetch(apiUrl(path), {
     ...init,
-    headers,
+    headers: appHeaders(init.headers),
     signal: AbortSignal.timeout(timeoutMs),
   });
   const isJson = (res.headers.get("content-type") || "").includes("json");

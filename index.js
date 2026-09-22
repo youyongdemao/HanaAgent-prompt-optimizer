@@ -13,9 +13,11 @@ import { randomUUID } from "node:crypto";
 import { defineApp } from "./sdk/app-contract/server-client.js";
 import {
   buildSystemPrompt,
+  buildReviseSystemPrompt,
   buildUserMessage,
   clampInt,
   normalizeStyle,
+  isRevisableAssistant,
   stripWrapping,
   DEFAULT_MAX_TOKENS,
   MAX_INPUT_CHARS,
@@ -119,7 +121,9 @@ export default defineApp(async (sdk) => {
       return c.json({ ok: true, config: saved });
     });
 
-    app.post("/optimize", async (c) => {
+    // 流式改写：结果边生成边推给卡片。模型用宿主当前焦点模型（流式必须显式指定
+    // provider/model，不能像 utility 那样省）。事件按 NDJSON 一行一个往下发。
+    app.post("/optimize-stream", async (c) => {
       let body = {};
       try {
         body = await c.req.json();
@@ -142,26 +146,106 @@ export default defineApp(async (sdk) => {
       const extra = typeof body?.extra === "string" ? body.extra : "";
       const maxTokens = clampInt(body?.maxTokens, 256, 4096, DEFAULT_MAX_TOKENS);
 
-      let optimized = "";
+      let provider = "";
+      let modelId = "";
       try {
-        optimized = await sampleOptimized(sdk, { text, style, extra, maxTokens });
+        const catalog = await sdk.models.listAvailable();
+        const list = catalog?.models ?? [];
+        const current = list.find((m) => m?.isCurrent) ?? list[0];
+        if (!current?.provider || !current?.id) throw new Error("宿主里没有可用的模型");
+        provider = current.provider;
+        modelId = current.id;
       } catch (error) {
         return c.json(
-          { ok: false, error: "MODEL_FAILED", message: String(error?.message || error || "模型调用失败") },
-          502,
+          { ok: false, error: "NO_MODEL", message: `取不到可用模型：${String(error?.message || error)}` },
+          503,
         );
       }
 
-      if (!optimized) {
-        return c.json({ ok: false, error: "EMPTY_RESULT", message: "模型没有返回内容，换个说法再试。" }, 502);
+      // 迭代精修：带上一版结果继续改。形状不对就当首轮处理，不把来路不明的内容塞进 messages。
+      const revise = typeof body?.revise === "string" ? body.revise.trim() : "";
+      const prior = isRevisableAssistant(body?.priorAssistant) ? body.priorAssistant : null;
+      const revising = Boolean(revise && prior);
+
+      const systemPrompt = revising ? buildReviseSystemPrompt(style, extra) : buildSystemPrompt(style, extra);
+      const messages = [{ role: "user", content: buildUserMessage(text) }];
+      if (revising) {
+        messages.push(prior);
+        messages.push({ role: "user", content: revise });
       }
 
-      return c.json({
-        ok: true,
-        optimized,
-        style,
-        originalLength: text.length,
-        optimizedLength: optimized.length,
+      const requestId = randomUUID();
+      const encoder = new TextEncoder();
+      const abort = new AbortController();
+      // 卡片点「停止」或连接断开时，把模型流一起掐掉，不白烧 token
+      c.req.raw?.signal?.addEventListener("abort", () => abort.abort(), { once: true });
+
+      const stream = new ReadableStream({
+        async start(controller) {
+          const push = (payload) => {
+            try {
+              controller.enqueue(encoder.encode(`${JSON.stringify(payload)}\n`));
+            } catch {
+              /* 客户端已断开，后续事件丢弃 */
+            }
+          };
+          let finished = false;
+          let accumulated = "";
+          try {
+            for await (const event of sdk.models.streamEvents(
+              {
+                requestId,
+                provider,
+                model: modelId,
+                messages,
+                systemPrompt,
+                temperature: 0.4,
+                maxTokens,
+              },
+              { signal: abort.signal },
+            )) {
+              if (event.type === "text-delta") {
+                accumulated += event.delta;
+                push({ requestId, type: "text-delta", delta: event.delta });
+              } else if (event.type === "done") {
+                finished = true;
+                push({
+                  requestId,
+                  type: "done",
+                  stopReason: event.stopReason,
+                  // 完整可回放的 assistant 消息：卡片要把它原样带回做迭代精修
+                  assistant: event.assistant,
+                  // 清洗过的成品，省得前端自己猜围栏剥完没有
+                  optimized: stripWrapping(accumulated),
+                  style,
+                  provider,
+                  model: modelId,
+                });
+              }
+            }
+            if (!finished) {
+              push({ requestId, type: "error", code: "EMPTY_RESULT", message: "模型没有返回内容，换个说法再试。" });
+            }
+          } catch (error) {
+            push({ requestId, type: "error", code: "STREAM_FAILED", message: String(error?.message || error) });
+          } finally {
+            try {
+              controller.close();
+            } catch {
+              /* 已关闭 */
+            }
+          }
+        },
+        cancel() {
+          abort.abort();
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          "content-type": "application/x-ndjson; charset=utf-8",
+          "cache-control": "no-store",
+        },
       });
     });
 

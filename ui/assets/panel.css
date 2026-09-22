@@ -148,6 +148,13 @@ body[data-color-mode="dark"] .po,
   color: var(--po-ink-soft);
 }
 
+/* 快捷键提示贴着输入框：它只对那个输入框生效 */
+.po-label-right {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
 .po-count,
 .po-leninfo {
   font: 400 10.5px var(--font-mono);
@@ -211,9 +218,9 @@ body[data-color-mode="dark"] .po,
 }
 
 .po-kbd {
-  margin-left: auto;
   font: 400 10px var(--font-mono);
   color: var(--po-ink-faint);
+  cursor: help;
 }
 
 .po-btn {
@@ -279,6 +286,19 @@ body[data-color-mode="dark"] .po,
 .po-btn.primary:hover {
   color: var(--po-on-accent, #fff);
   box-shadow: 0 5px 20px var(--po-glow), inset 0 1px 0 color-mix(in srgb, #fff 32%, transparent);
+}
+
+/* 生成中主按钮转成「停止」：警示色压住亮度，别在暗色下刺眼 */
+.po-btn.primary.is-stop {
+  background: color-mix(in srgb, var(--danger, #ef4444) 14%, transparent);
+  border-color: color-mix(in srgb, var(--danger, #ef4444) 42%, transparent);
+  color: color-mix(in srgb, var(--danger, #ef4444) 74%, var(--po-ink));
+  box-shadow: inset 0 1px 0 var(--po-glass-hi), 0 2px 12px color-mix(in srgb, var(--danger, #ef4444) 16%, transparent);
+}
+
+.po-btn.primary.is-stop:hover {
+  color: color-mix(in srgb, var(--danger, #ef4444) 84%, var(--po-ink));
+  border-color: color-mix(in srgb, var(--danger, #ef4444) 58%, transparent);
 }
 
 .po-btn:disabled {
@@ -360,6 +380,65 @@ body[data-color-mode="dark"] .po,
 .po-result-actions {
   display: flex;
   gap: 8px;
+}
+
+/* ── 迭代精修：在上一版结果上继续改 ── */
+.po-revise {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.po-revise-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--text) 3.5%, transparent);
+  color: var(--po-ink);
+  padding: 8px 11px;
+  font: inherit;
+  font-size: 12px;
+  transition: border-color .16s, box-shadow .16s;
+}
+
+.po-revise-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.po-revise-input::placeholder {
+  color: var(--po-ink-faint);
+}
+
+.po-revise-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.po-chip-sm {
+  border: 1px solid color-mix(in srgb, var(--text) 13%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 40%, transparent);
+  color: var(--po-ink-soft);
+  border-radius: 999px;
+  padding: 4px 11px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: transform .12s, background .16s, color .16s, box-shadow .16s;
+}
+
+.po-chip-sm:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--po-ink);
+  box-shadow: 0 3px 12px var(--po-glow);
+}
+
+.po-chip-sm:active {
+  transform: scale(.96);
 }
 
 @keyframes poLayerIn {

@@ -2,7 +2,7 @@
 // 传输层交给 v2 浏览器 SDK（sdk.js）：协议握手、主题推送、卡片高度上报、宿主能力都在里面。
 // 应用自己的后端接口走 app-api.js（/api/apps/prompt-optimizer/routes/）。
 import { hana } from "./sdk.js";
-import { apiFetch } from "./app-api.js";
+import { apiUrl, appHeaders } from "./app-api.js";
 
 async function toast(message, type = "info") {
   try {
@@ -229,7 +229,10 @@ function render() {
 
       <label class="po-label" for="po-input">
         <span>基础提示词</span>
-        <span id="po-count" class="po-count">0 字</span>
+        <span class="po-label-right">
+          <span class="po-kbd" title="光标在输入框里时，按 Ctrl + Enter 直接优化">Ctrl + Enter</span>
+          <span id="po-count" class="po-count">0 字</span>
+        </span>
       </label>
       <textarea id="po-input" class="po-input" spellcheck="false"
         placeholder="例如：帮我讲清楚 PID 里的积分项到底在干嘛"></textarea>
@@ -240,20 +243,31 @@ function render() {
       <div class="po-actions">
         <button id="po-run" class="po-btn primary" type="button"><span class="po-btn-tx" id="po-run-tx">优化</span></button>
         <button id="po-clear" class="po-btn" type="button"><span class="po-btn-tx">清空</span></button>
-        <span class="po-kbd">Ctrl + Enter</span>
       </div>
 
       <p id="po-error" class="po-error" hidden></p>
 
       <section id="po-result-wrap" class="po-result-wrap" hidden>
         <div class="po-result-head">
-          <span>优化结果</span>
+          <span id="po-result-title">优化结果</span>
           <span id="po-leninfo" class="po-leninfo"></span>
         </div>
         <textarea id="po-result" class="po-result" spellcheck="false" readonly></textarea>
+
+        <div class="po-revise">
+          <input id="po-revise" class="po-revise-input" type="text" spellcheck="false"
+            placeholder="不满意？说要改哪儿，例如：再短一点、去掉第 3 条">
+          <button id="po-revise-run" class="po-btn" type="button"><span class="po-btn-tx">改</span></button>
+        </div>
+        <div class="po-revise-quick" id="po-revise-quick">
+          <button class="po-chip-sm" type="button" data-revise="整体再短一些，砍掉不必要的解释">更短</button>
+          <button class="po-chip-sm" type="button" data-revise="把要求写得更具体、更可判断，减少模糊的形容">更具体</button>
+          <button class="po-chip-sm" type="button" data-revise="语气再平实一些，去掉官方套话和空泛的表述">更平实</button>
+        </div>
+
         <div class="po-result-actions">
           <button id="po-copy" class="po-btn primary" type="button"><span class="po-btn-tx">复制</span></button>
-          <button id="po-again" class="po-btn" type="button"><span class="po-btn-tx">再优化一次</span></button>
+          <button id="po-back" class="po-btn" type="button"><span class="po-btn-tx">替换原文</span></button>
         </div>
       </section>
 
@@ -271,9 +285,18 @@ function render() {
   const resultEl = document.getElementById("po-result");
   const lenInfoEl = document.getElementById("po-leninfo");
   const copyBtn = document.getElementById("po-copy");
-  const againBtn = document.getElementById("po-again");
+  const backBtn = document.getElementById("po-back");
+  const reviseEl = document.getElementById("po-revise");
+  const reviseBtn = document.getElementById("po-revise-run");
+  const reviseQuick = document.getElementById("po-revise-quick");
+  const resultTitleEl = document.getElementById("po-result-title");
+
   let style = "general";
-  let loading = false;
+  let streaming = false;
+  let abortCtrl = null;
+  // 上一版结果的完整 assistant 消息（含模型的签名字段），迭代精修时原样带回
+  let lastAssistant = null;
+  let lastSource = "";
 
   fitHeight = () => {
     // 取两者较大值：body 有 min-height:100%，只读 body 会在内容比视口矮时
@@ -302,49 +325,159 @@ function render() {
     fitHeight();
   };
 
-  const setLoading = (on) => {
-    loading = on;
-    runBtn.disabled = on;
-    runTx.textContent = on ? "优化中…" : "优化";
+  /** 结果框跟着内容长高 */
+  const growResult = () => {
+    resultEl.style.height = "auto";
+    resultEl.style.height = `${Math.min(360, Math.max(140, resultEl.scrollHeight))}px`;
+    fitHeight();
   };
 
-  const optimize = async () => {
-    if (loading) return;
+  // 流式期间每来一段 delta 都重算高度会抖，用 rAF 合并成每帧一次
+  let growRaf = 0;
+  const scheduleGrow = () => {
+    if (growRaf) return;
+    growRaf = requestAnimationFrame(() => {
+      growRaf = 0;
+      growResult();
+    });
+  };
+
+  /** 生成中主按钮变成「停止」，其余输入先按住 */
+  const syncRunButton = () => {
+    runBtn.disabled = false;
+    runBtn.classList.toggle("is-stop", streaming);
+    runTx.textContent = streaming ? "停止" : "优化";
+    reviseBtn.disabled = streaming;
+    clearBtn.disabled = streaming;
+  };
+
+  /**
+   * 流式清洗：模型偶尔把整段包进代码围栏，或带一句「优化后的提示词：」前缀。
+   * 流没结束时围栏只有半边，不能沿用后端的完整正则，这里逐段剥。
+   */
+  const cleanStreaming = (raw) => {
+    let out = String(raw ?? "");
+    out = out.replace(/^\s*`{3}[a-zA-Z0-9_-]*[ \t]*\r?\n?/, "");
+    out = out.replace(/\r?\n?`{3}\s*$/, "");
+    out = out.replace(/^(优化后的?提示词|optimized prompt)\s*[:：]\s*/i, "");
+    return out;
+  };
+
+  const runStream = async (revise = "") => {
+    if (streaming) return;
     const text = inputEl.value.trim();
     if (!text) {
       setError("先写点什么，再点优化。");
       inputEl.focus();
       return;
     }
+    const isRevise = Boolean(revise);
+    if (isRevise && !lastAssistant) {
+      setError("还没有可修改的结果，先优化一次。");
+      return;
+    }
+
     setError("");
-    setLoading(true);
+    streaming = true;
+    syncRunButton();
+
+    if (!isRevise) {
+      lastAssistant = null;
+      lastSource = text;
+      resultEl.value = "";
+    }
+    resultWrap.hidden = false;
+    resultTitleEl.textContent = isRevise ? "修改中" : "生成中";
+    lenInfoEl.textContent = "";
+    growResult();
+
+    abortCtrl = new AbortController();
+    let acc = "";
+    let finished = false;
+
     try {
-      const data = await apiFetch(
-        "optimize",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, style, extra: extraEl.value }),
-        },
-        60000,
-      );
-      if (!data?.ok) {
-        setError(data?.message || "优化失败，请稍后再试。");
-        return;
-      }
-      resultEl.value = data.optimized;
-      resultWrap.hidden = false;
-      lenInfoEl.textContent = `${data.originalLength} → ${data.optimizedLength} 字`;
-      requestAnimationFrame(() => {
-        resultEl.style.height = "auto";
-        resultEl.style.height = `${Math.min(360, Math.max(120, resultEl.scrollHeight))}px`;
-        fitHeight();
+      const res = await fetch(apiUrl("optimize-stream"), {
+        method: "POST",
+        headers: appHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          text,
+          style,
+          extra: extraEl.value,
+          revise,
+          priorAssistant: lastAssistant,
+        }),
+        signal: abortCtrl.signal,
       });
+
+      if (!res.ok) {
+        const info = await res.json().catch(() => null);
+        throw new Error(info?.message || `生成失败（HTTP ${res.status}）`);
+      }
+      if (!res.body) throw new Error("生成失败：没有拿到数据流。");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done: readDone } = await reader.read();
+        if (readDone) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let cut;
+        while ((cut = buffer.indexOf("\n")) >= 0) {
+          const line = buffer.slice(0, cut).trim();
+          buffer = buffer.slice(cut + 1);
+          if (!line) continue;
+
+          let event;
+          try {
+            event = JSON.parse(line);
+          } catch {
+            continue;
+          }
+
+          if (event.type === "text-delta") {
+            acc += event.delta;
+            resultEl.value = cleanStreaming(acc);
+            lenInfoEl.textContent = `${text.length} → ${resultEl.value.length} 字`;
+            scheduleGrow();
+          } else if (event.type === "done") {
+            finished = true;
+            lastAssistant = event.assistant || null;
+            const finalText =
+              typeof event.optimized === "string" && event.optimized
+                ? event.optimized
+                : cleanStreaming(acc);
+            resultEl.value = finalText;
+            lenInfoEl.textContent = `${text.length} → ${finalText.length} 字`;
+            growResult();
+          } else if (event.type === "error") {
+            throw new Error(event.message || "生成失败。");
+          }
+        }
+      }
+
+      if (!finished) throw new Error("生成中断，请重试。");
+      resultTitleEl.textContent = "优化结果";
+      growResult();
     } catch (err) {
-      setError(String(err?.message || err));
+      if (err?.name === "AbortError") {
+        // 主动停：已经收到的部分留着，不白扔
+        resultTitleEl.textContent = "已停止";
+        lenInfoEl.textContent = resultEl.value
+          ? `${lastSource.length} → ${resultEl.value.length} 字`
+          : "已停止";
+        toast("已停止生成", "info");
+      } else {
+        setError(String(err?.message || err));
+        if (!resultEl.value) resultWrap.hidden = true;
+      }
     } finally {
-      setLoading(false);
-      fitHeight();
+      streaming = false;
+      abortCtrl = null;
+      syncRunButton();
+      growResult();
     }
   };
 
@@ -379,23 +512,73 @@ function render() {
   inputEl.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
-      optimize();
+      void runStream("");
     }
   });
-  runBtn.addEventListener("click", optimize);
+
+  runBtn.addEventListener("click", () => {
+    if (streaming) {
+      abortCtrl?.abort();
+      return;
+    }
+    void runStream("");
+  });
+
+  reviseBtn.addEventListener("click", () => {
+    const request = reviseEl.value.trim();
+    if (!request) {
+      reviseEl.focus();
+      return;
+    }
+    void runStream(request);
+  });
+  reviseEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      reviseBtn.click();
+    }
+  });
+
+  reviseQuick.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-revise]");
+    if (!btn || streaming) return;
+    reviseEl.value = btn.dataset.revise || "";
+    void runStream(reviseEl.value.trim());
+  });
+
   clearBtn.addEventListener("click", () => {
+    if (streaming) abortCtrl?.abort();
     inputEl.value = "";
     extraEl.value = "";
+    reviseEl.value = "";
     resultEl.value = "";
     resultWrap.hidden = true;
+    lastAssistant = null;
+    lastSource = "";
     setError("");
     syncCount();
     inputEl.focus();
   });
+
   copyBtn.addEventListener("click", copyResult);
-  againBtn.addEventListener("click", optimize);
+
+  // 把结果搬回输入框：方便换场景再优化一轮，或者手工再改两笔
+  backBtn.addEventListener("click", () => {
+    const text = resultEl.value.trim();
+    if (!text) return;
+    inputEl.value = text;
+    resultEl.value = "";
+    resultWrap.hidden = true;
+    lastAssistant = null;
+    lastSource = "";
+    setError("");
+    syncCount();
+    inputEl.focus();
+    toast("已放回输入框，可以改完再优化", "success");
+  });
 
   syncCount();
+  syncRunButton();
   requestAnimationFrame(fitHeight);
 }
 

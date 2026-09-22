@@ -5,7 +5,9 @@
 ## 功能
 
 - 六种场景预设：通用 / 编程 / 写作 / 图像 / 分析 / Agent，每种带各自的侧重项
-- 卡片界面：写输入、切场景、补硬性要求，输出与原文长度对照，一键复制
+- 流式改写：结果边生成边显示，随时可以停，已经收到的部分留着
+- 结果迭代精修：在上一版结果上继续提要求做增量修改（更短 / 更具体 / 更平实，或自己写），不用从头再来
+- 替换原文：把结果搬回输入框，方便换场景再优化，或手工再改两笔
 - 模型工具 `optimize_prompt`：Agent 在对话里可以说「帮我优化这段提示词」直接调用
 - 检查更新：比对指定 GitHub 仓库的 Release，有新版给更新日志与下载入口
 - 设置页：发布仓库地址、版本号、GitHub 与更新入口
@@ -33,7 +35,7 @@ sdk/              打包随附的 App SDK（不依赖宿主 node_modules）
 
 | 路径 | 说明 |
 |------|------|
-| `POST /optimize` | 一次改写，返回 `{ ok, optimized, originalLength, optimizedLength }` |
+| `POST /optimize-stream` | 流式改写，NDJSON 一行一个事件：`start` / `text-delta` / `done` / `error`；带 `revise` 与 `priorAssistant` 时走迭代精修 |
 | `GET /meta` | 当前版本与发布仓库 |
 | `GET/POST /config` | 读写应用配置 |
 | `GET /update-check` | 与 GitHub Release 比对版本 |
