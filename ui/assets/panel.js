@@ -613,6 +613,14 @@ function render() {
   };
 
   /** 生成中主按钮变成「停止」，其余输入先按住 */
+  /** 「继续改」输入框的提示跟着这轮勾选的改法实时变，一眼知道这次要改什么 */
+  const syncReviseHint = () => {
+    const picked = fixes.filter((item) => pickedFixes.has(item.id)).map((item) => item.label);
+    reviseEl.placeholder = picked.length
+      ? `将按「${picked.join("、")}」改进；也可以补一句自己的要求`
+      : "不满意？说要改哪儿；上面的方向可以多选";
+  };
+
   const syncRunButton = () => {
     runBtn.disabled = false;
     runBtn.classList.toggle("is-stop", streaming);
@@ -627,6 +635,8 @@ function render() {
     clearBtn.disabled = streaming;
     // 刚被禁用的按钮上如果正停着光晕，立刻收掉，不用等鼠标动
     dropStaleGlow();
+    // 输入框的提示跟着这轮勾选走
+    syncReviseHint();
   };
 
   /**
