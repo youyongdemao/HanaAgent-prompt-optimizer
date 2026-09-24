@@ -917,6 +917,17 @@ body[data-color-mode="dark"] .po-error,
   justify-content: center;
 }
 
+/* ── 单行高度那两栏的提示语不折行 ──
+   补充要求与继续改都是「一行起、六行封顶」的框，但提示语长了照样会在框内折行，
+   而框高只有一行，第二行就被下边缘切掉半截（看着像显示坏了）。
+   宁可给它一个省略号：完整那句挂在 title 里，悬停能看到。 */
+.po-extra::placeholder,
+.po-revise-input::placeholder {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ── 多行输入（补充要求 / 继续改）：一行起、六行封顶 ── */
 .po-extra,
 .po-revise-input {

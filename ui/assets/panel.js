@@ -234,7 +234,7 @@ function render() {
         placeholder="例如：帮我讲清楚 PID 里的积分项到底在干嘛"></textarea>
 
       <textarea id="po-extra" class="po-extra" rows="1" spellcheck="false"
-        placeholder="可选：补充要求，如「面向零基础」「控制在 300 字内」"></textarea>
+        placeholder="可选：补充要求，如「面向零基础」" title="可选：补充要求，如「面向零基础」「控制在 300 字内」"></textarea>
       <p class="po-kbd" title="Enter 直接优化">Shift + Enter 换行</p>
 
       <div class="po-actions">
