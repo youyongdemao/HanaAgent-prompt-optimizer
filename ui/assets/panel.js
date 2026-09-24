@@ -275,12 +275,8 @@ function render() {
 
         <div class="po-revise-tools">
           <div class="po-split">
-            <button id="po-revise-left" class="po-split-btn" type="button" title="基于上面那一版继续改">
-              <span class="po-tx-wide">改左面</span><span class="po-tx-narrow">改上面</span>
-            </button>
-            <button id="po-revise-right" class="po-split-btn" type="button" title="基于下面那一版继续改">
-              <span class="po-tx-wide">改右面</span><span class="po-tx-narrow">改下面</span>
-            </button>
+            <button id="po-revise-left" class="po-split-btn" type="button" title="基于左栏这一版重出一版（不写要求时就等于「+」）">重写</button>
+            <button id="po-revise-right" class="po-split-btn" type="button" title="基于右栏那一版，按新要求改进">改进</button>
           </div>
           <div class="po-revise-quick" id="po-revise-quick"></div>
         </div>
