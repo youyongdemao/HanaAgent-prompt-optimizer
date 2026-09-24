@@ -566,6 +566,13 @@ body {
   background: color-mix(in srgb, var(--text) 14%, transparent);
 }
 
+/* ── 空清单提示：左缩进与每行的 × / ＋ 同列 ──
+   它原来直接贴在卡片左边缘，比加号那一列靠左 16px；
+   左右内边距跟 .fx-row 那套值保持一致（改那边记得一起改）。 */
+.fx-empty {
+  padding: 9px 16px;
+}
+
 /* ── 新增一行：清单下面、按钮上面 ──
    左边与 × 那一列对齐，右边缘与每行开关对齐；列宽跟 .fx-row 一致。 */
 .fx-add {
