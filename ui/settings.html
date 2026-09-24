@@ -13,6 +13,35 @@
   <div class="st-page">
 
     <section class="st-block">
+      <h1 class="st-block-title">卡片上的改法</h1>
+      <p class="st-desc">卡片「继续改」那一排就是这份清单：点一下勾选、可多选，点「改」时把选中的要求合并成一条。这里改完立刻生效。</p>
+
+      <section class="st-section">
+        <h2>当前清单</h2>
+        <div class="fx-list" id="fxList"></div>
+      </section>
+
+      <section class="st-section">
+        <h2>可选的，点一下加进清单</h2>
+        <div class="fx-presets" id="fxPresets"></div>
+      </section>
+
+      <section class="st-section">
+        <h2>自己写一个</h2>
+        <div class="fx-add">
+          <input class="fx-input fx-input-label" id="fxLabel" type="text" maxlength="12" placeholder="按钮上的字">
+          <input class="fx-input" id="fxPrompt" type="text" placeholder="勾上后让模型做什么">
+          <button class="st-btn st-btn-sm" id="fxAdd" type="button">添加</button>
+        </div>
+      </section>
+
+      <div class="st-actions">
+        <button class="st-btn" id="fxReset" type="button">恢复默认六个</button>
+        <span class="st-status" id="fxStatus"></span>
+      </div>
+    </section>
+
+    <section class="st-block">
       <h1 class="st-block-title">关于</h1>
       <section class="st-section">
         <ul class="st-list">
