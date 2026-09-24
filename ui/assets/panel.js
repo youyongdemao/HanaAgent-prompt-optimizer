@@ -697,7 +697,7 @@ function render() {
     return out;
   };
 
-  const runStream = async (revise = "", { labels = [], mode = "branch" } = {}) => {
+  const runStream = async (revise = "", { labels = [], mode = "branch", at = -1 } = {}) => {
     if (streaming) return;
     const text = inputEl.value.trim();
     if (!text) {
@@ -812,6 +812,9 @@ function render() {
                 : detail.length > 10
                   ? detail.slice(0, 10) + "…"
                   : detail;
+              // 从中间那节改进：它后面的版本被这一版取代（链条不留分叉），
+              // 大版本号就是被占住的那个位置，小版本从 1 重开。
+              if (at >= 0 && at < branches.length) branches = branches.slice(0, at);
               branches.push({
                 label,
                 detail,
@@ -819,6 +822,8 @@ function render() {
                 base: startAssistant,
                 items: [item],
               });
+              activeBranch = branches.length - 1;
+              activeItem = 0;
               activeBranch = branches.length - 1;
               activeItem = 0;
               // 右栏默认停在上一个大版本的最新一次重写，方便直接比
@@ -995,10 +1000,13 @@ function render() {
     }
 
     lastAssistant = base.assistant;
+    // 新版本占住哪一节：从「被点的那节」往后一位。这样从中间改会取代后面的版本，
+    // 而不是接在链条尾巴上。
+    const at = ((side === "right" && inspecting ? inspecting.branch : activeBranch) ?? -1) + 1;
     // 先把这条回显到输入框，让用户看清这次到底要发什么
     reviseEl.value = request;
     autoGrow(reviseEl);
-    void runStream(request, { labels, mode: "branch" }).finally(clearPicked);
+    void runStream(request, { labels, mode: "branch", at }).finally(clearPicked);
   };
 
   /** 「+」：不带新要求，在当前大版本上再重写一次，记成小版本 */
