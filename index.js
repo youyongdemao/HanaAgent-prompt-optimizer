@@ -130,12 +130,17 @@ export default defineApp(async (sdk) => {
       }
     });
 
-    // 清单存在 App 这一侧：卡片和设置页跑在各自的 iframe 里，浏览器存储不互通，
-    // 只有走 App 自己的存储，两边才看得到同一份。
+    // 配置（提示词清单 + 「按内容现推方向」开关）存在 App 这一侧：卡片和设置页跑在各自的
+    // iframe 里，浏览器存储不互通，只有走 App 自己的存储，两边才看得到同一份。
     app.get("/fixes", async (c) => {
       try {
         const items = await sdk.storage.global.get("fixes", null);
-        return c.json({ ok: true, items: Array.isArray(items) ? items : null });
+        const suggest = await sdk.storage.global.get("suggest", false);
+        return c.json({
+          ok: true,
+          items: Array.isArray(items) ? items : null,
+          suggest: suggest === true,
+        });
       } catch (err) {
         return c.json({ ok: false, error: "READ_FAILED", message: String(err?.message || err) }, 500);
       }
@@ -152,6 +157,8 @@ export default defineApp(async (sdk) => {
       if (!items) return c.json({ ok: false, error: "BAD_BODY" }, 400);
       try {
         await sdk.storage.global.set("fixes", items);
+        // 开关可选：这一版旧客户端不带它，带上才写，免得把它洗掉
+        if (typeof body?.suggest === "boolean") await sdk.storage.global.set("suggest", body.suggest);
         return c.json({ ok: true, count: items.length });
       } catch (err) {
         return c.json({ ok: false, error: "WRITE_FAILED", message: String(err?.message || err) }, 500);

@@ -4,6 +4,14 @@
 import { apiUrl, appHeaders } from "./app-api.js";
 
 const STORAGE_KEY = "po-fixes-v1";
+const SUGGEST_KEY = "po-suggest-v1";
+
+/** 卡片上那一排最多同时摆这么多 */
+export const MAX_CHIPS = 8;
+/** 「按内容现推方向」打开时，至少给它留这么多位置 */
+export const SUGGEST_FLOOR = 4;
+/** 基础提示词短于这个长度就不去问模型：没什么可推的 */
+export const SUGGEST_MIN_CHARS = 8;
 
 /** 卡片上默认显示这六个 */
 export const DEFAULT_FIXES = [
@@ -68,46 +76,92 @@ export function saveFixes(list) {
   }
 }
 
+/** 「按内容现推方向」这个开关：本机缓存一份，真身在 App 那一侧 */
+export function loadSuggest() {
+  try {
+    return window.localStorage.getItem(SUGGEST_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveSuggest(on) {
+  try {
+    window.localStorage.setItem(SUGGEST_KEY, on ? "1" : "0");
+  } catch {
+    /* 同上 */
+  }
+}
+
 /** 卡片只用在设置页开着的那些 */
 export function loadActiveFixes() {
   return loadFixes().filter((item) => item.on !== false);
 }
 
 /**
- * 从 App 那一侧取清单（真正的权威来源）。拿不到就返回 null，
+ * 从 App 那一侧取配置（清单 + 现推开关）。拿不到就返回 null，
  * 调用方留着本地缓存先跑，等下一次再对齐。
  */
-export async function pullFixes() {
+export async function pullConfig() {
   try {
     const res = await fetch(apiUrl("fixes"), { headers: appHeaders() });
     if (!res.ok) {
-      console.warn("[prompt-optimizer] 读取清单失败", res.status);
+      console.warn("[prompt-optimizer] 读取配置失败", res.status);
       return null;
     }
     const body = await res.json().catch(() => null);
-    return Array.isArray(body?.items) ? sanitize(body.items) : null;
+    return {
+      items: Array.isArray(body?.items) ? sanitize(body.items) : null,
+      suggest: body?.suggest === true,
+    };
   } catch (err) {
-    console.warn("[prompt-optimizer] 读取清单异常", err);
+    console.warn("[prompt-optimizer] 读取配置异常", err);
     return null;
   }
 }
 
-/** 把清单存到 App 那一侧（本地那份同时留作缓存）。返回 {ok,status}，status 便于排障。 */
-export async function pushFixes(list) {
+/** 把配置存到 App 那一侧（本地那份同时留作缓存）。返回 {ok,status}，status 便于排障。 */
+export async function pushConfig(list, suggest) {
   const clean = sanitize(list) ?? [];
+  const flag = suggest === true;
   saveFixes(clean);
+  saveSuggest(flag);
   try {
     const res = await fetch(apiUrl("fixes"), {
       method: "POST",
       headers: appHeaders({ "content-type": "application/json" }),
-      body: JSON.stringify({ items: clean }),
+      body: JSON.stringify({ items: clean, suggest: flag }),
     });
-    if (!res.ok) console.warn("[prompt-optimizer] 保存清单失败", res.status, await res.text().catch(() => ""));
+    if (!res.ok) console.warn("[prompt-optimizer] 保存配置失败", res.status, await res.text().catch(() => ""));
     return { ok: res.ok, status: res.status };
   } catch (err) {
-    console.warn("[prompt-optimizer] 保存清单异常", err);
+    console.warn("[prompt-optimizer] 保存配置异常", err);
     return { ok: false, status: 0 };
   }
+}
+
+/**
+ * 卡片那一排到底摆什么：自定义在前（开着的那些），现推在后，总数不超过 MAX_CHIPS。
+ * suggestOn 关掉时全是自定义；打开时至少给现推留 SUGGEST_FLOOR 个位置，
+ * 自定义不足四条时空出来的位置也归现推。
+ */
+export function composeChips({ enabled, suggested, suggestOn }) {
+  const list = Array.isArray(enabled) ? enabled : [];
+  const custom = list.slice(0, suggestOn ? MAX_CHIPS - SUGGEST_FLOOR : MAX_CHIPS);
+  if (!suggestOn) return custom;
+  const seen = new Set(custom.map((item) => item.label));
+  const extra = [];
+  for (const item of Array.isArray(suggested) ? suggested : []) {
+    const label = typeof item?.label === "string" ? item.label.trim() : "";
+    const prompt = typeof item?.prompt === "string" ? item.prompt.trim() : "";
+    if (!label || !prompt || seen.has(label)) continue;
+    seen.add(label);
+    extra.push({ id: item.id || "s" + extra.length, label, prompt });
+  }
+  const slots = Math.max(SUGGEST_FLOOR, MAX_CHIPS - custom.length);
+  // 现推还没到位或没拿到：不摆空位，先把自定义那份摆满
+  if (!extra.length) return list.slice(0, MAX_CHIPS);
+  return [...custom, ...extra.slice(0, slots)];
 }
 
 /** 某个预设现在是否已经在清单里 */

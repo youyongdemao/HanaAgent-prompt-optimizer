@@ -5,7 +5,7 @@ import { hana } from "./sdk.js";
 import { apiFetch } from "./app-api.js";
 import { openUpdateNotice } from "./update-notice.js";
 import { initHostThemeSync } from "./theme-sync.js";
-import { loadFixes, saveFixes, pullFixes, pushFixes, DEFAULT_FIXES, newFixId } from "./fixes.js";
+import { loadFixes, loadSuggest, pullConfig, pushConfig, DEFAULT_FIXES, newFixId } from "./fixes.js";
 hana.ready();
 
 // 主题跟随宿主窗口：与其它页面共用同一套，不各自读 iframe URL 里的初值
@@ -32,6 +32,7 @@ async function load() {
 // 卡片和这里读写的是同一份本机配置（assets/fixes.js），改完卡片下次打开就是新的。
 
 let fixes = loadFixes();
+let suggestOn = loadSuggest();
 
 const fxStatus = $("fxStatus");
 
@@ -48,11 +49,6 @@ let dirty = false;
 function markDirty() {
   dirty = true;
   setFxStatus("有未保存的修改", "warn");
-}
-
-function persist(note) {
-  saveFixes(fixes);
-  if (note) setFxStatus(note, "ok");
 }
 
 function makeInput(value, className, placeholder, title, onCommit) {
@@ -154,9 +150,17 @@ $("fxReset")?.addEventListener("click", () => {
   renderFx();
 });
 
+// 「按内容现推方向」开关：跟清单里那些开关一样，点「保存修改」才落盘
+const suggestBox = $("fxSuggest");
+if (suggestBox) suggestBox.checked = suggestOn;
+suggestBox?.addEventListener("change", () => {
+  suggestOn = suggestBox.checked;
+  markDirty();
+});
+
 $("fxSave")?.addEventListener("click", async () => {
   setFxStatus("保存中…");
-  const r = await pushFixes(fixes);
+  const r = await pushConfig(fixes, suggestOn);
   dirty = false;
   setFxStatus(
     r.ok ? "已保存" : `没存到 App 那一侧（HTTP ${r.status || "网络异常"}），已留在本机`,
@@ -169,8 +173,10 @@ $("aboutUpdate")?.addEventListener("click", () => openUpdateNotice());
 load();
 
 // 清单的真身在 App 那一侧，本地那份只是缓存：启动后拉一次对齐
-void pullFixes().then((remote) => {
+void pullConfig().then((remote) => {
   if (!remote) return;
-  fixes = remote;
+  if (remote.items) fixes = remote.items;
+  suggestOn = remote.suggest;
+  if (suggestBox) suggestBox.checked = suggestOn;
   renderFx();
 });

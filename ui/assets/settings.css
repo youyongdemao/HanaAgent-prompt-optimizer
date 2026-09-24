@@ -349,6 +349,25 @@ body {
   overflow: hidden;
 }
 
+/* 开头这一行：「按内容现推方向」开关。跟清单里的行同一套间距，底下用细线分条 */
+.fx-mode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.fx-mode-main { flex: 1; min-width: 0; }
+
+.fx-mode-title { font-size: 13px; color: var(--text); }
+
+.fx-mode-desc {
+  font-size: 11.5px;
+  color: color-mix(in srgb, var(--text) 58%, transparent);
+  margin-top: 2px;
+}
+
 .fx-list { display: grid; gap: 0; }
 
 .fx-row {

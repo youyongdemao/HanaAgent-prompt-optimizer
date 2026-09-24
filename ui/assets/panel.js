@@ -3,7 +3,7 @@
 // 应用自己的后端接口走 app-api.js（/api/apps/prompt-optimizer/routes/）。
 import { hana } from "./sdk.js";
 import { apiUrl, appHeaders } from "./app-api.js";
-import { loadActiveFixes, pullFixes } from "./fixes.js";
+import { loadActiveFixes, loadSuggest, pullConfig, composeChips, SUGGEST_MIN_CHARS } from "./fixes.js";
 
 async function toast(message, type = "info") {
   try {
@@ -357,27 +357,38 @@ function render() {
   let inspecting = null; // 右栏：null = 原文；否则 { branch, item }
   // 勾选的改法（可多选）：点「改」时和手写的要求合并成一条
   const pickedFixes = new Set();
-  // 卡片只负责用：清单从设置页配好的那份读（同一份本机配置）
-  let fixes = loadActiveFixes();
+  // 卡片只负责用：自定义清单 + 「按内容现推方向」的开关都从设置页那份配置读。
+  let enabledFixes = loadActiveFixes();
+  let suggestOn = loadSuggest();
+  let suggestedItems = [];
+  let fixes = composeChips({ enabled: enabledFixes, suggested: suggestedItems, suggestOn });
 
-  // 清单的真身在 App 那一侧，本地那份只是缓存：先渲染，再拉一次对齐。
-  // 切回卡片时也重拉：设置页改完不必把卡片关掉重开。
-  const fixSig = (list) => JSON.stringify(list.map((f) => [f.id, f.label, f.prompt, f.on]));
+  // 配置的真身在 App 那一侧，本地那份只是缓存：先渲染，再拉一次对齐。
+  // 切回卡片、重新聚焦时也重拉：设置页改完不必把卡片关掉重开。
+  const chipsSig = (list) => JSON.stringify(list.map((f) => [f.id, f.label, f.prompt]));
+  const recomposeChips = () => {
+    const next = composeChips({ enabled: enabledFixes, suggested: suggestedItems, suggestOn });
+    if (chipsSig(next) === chipsSig(fixes)) return; // 没变就别动，免得把已经勾好的清掉
+    applyFixes(next, true);
+  };
   const pullIntoPanes = () => {
-    void pullFixes().then((remote) => {
+    void pullConfig().then((remote) => {
       if (!remote) return;
-      // 设置页里关掉的项就是不上卡片：这份清单是卡片 chips 的唯一来源
-      const active = remote.filter((item) => item.on !== false);
-      if (fixSig(active) === fixSig(fixes)) return; // 没变就别动，免得把已经勾好的清掉
-      applyFixes(active, true);
+      if (remote.items) enabledFixes = remote.items.filter((item) => item.on !== false);
+      const turned = remote.suggest !== suggestOn;
+      suggestOn = remote.suggest;
+      // 开关刚动过：旧的那批方向已经不属于新配置，重新推一次
+      if (turned) {
+        suggestedItems = [];
+        scheduleSuggestion();
+      }
+      recomposeChips();
     });
   };
   pullIntoPanes();
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") pullIntoPanes();
   });
-  // 点回卡片也算一次对账：那两个信号靠不住时，这一条能兜底
-  window.addEventListener("focus", () => pullIntoPanes());
   // 设置页保存后宿主会广播一次 App 存储变更：卡片当场跟上，不用关掉卡片重开。
   // 单靠 visibilitychange 不够用：设置页开在另一个窗口，卡片这边的 document 一直是 visible。
   try {
@@ -729,10 +740,39 @@ function render() {
     syncRunButton();
   };
 
-  // chips 只由设置页那份清单决定（开关说了算）。
-  // 早先这里还挂着「输入停下后按提示词内容现推方向、并整体替换 chips」那一套，
-  // 结果是设置页关掉的项照样出现、改过的项反而看不到，开关等于没接上 —— 已去掉。
-  // 后端 /suggest-fixes 路由保留着，想把它接回来随时能接。
+  // chips 由设置页那份自定义清单 + 按内容现推的方向合成：
+  // 现推方向在最前面（针对这条提示词），自定义跟在后面，总共不超过 MAX_CHIPS。
+  // 开关关掉时全是自定义。后端 /suggest-fixes 每次都只出方向，不碰自定义那份。
+  let suggestTimer = 0;
+  let suggestSeq = 0;
+  const scheduleSuggestion = () => {
+    const text = inputEl.value.trim();
+    const seq = ++suggestSeq;
+    clearTimeout(suggestTimer);
+    if (!suggestOn || text.length < SUGGEST_MIN_CHARS) {
+      if (suggestedItems.length) {
+        suggestedItems = [];
+        recomposeChips();
+      }
+      return;
+    }
+    suggestTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(apiUrl("/suggest-fixes"), {
+          method: "POST",
+          headers: appHeaders({ "content-type": "application/json" }),
+          body: JSON.stringify({ text }),
+        });
+        if (!res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (seq !== suggestSeq) return; // 期间又改了输入，这次结果作废
+        suggestedItems = Array.isArray(data?.items) ? data.items : [];
+        recomposeChips();
+      } catch {
+        /* 拿不到方向就退出自定义那份，不打扰使用 */
+      }
+    }, 700);
+  };
 
   /** 「继续改」输入框的提示跟着这轮勾选的改法实时变，一眼知道这次要改什么 */
   const syncReviseHint = () => {
@@ -1015,6 +1055,8 @@ function render() {
   }
 
   inputEl.addEventListener("input", syncCount);
+  // 提示词一改，就重新问一次「这条适合往哪改」（现推开关关着时这步什么都不做）
+  inputEl.addEventListener("input", scheduleSuggestion);
   // 输入框里一有要求，「重写」就腾出位置给「改进」
   reviseEl.addEventListener("input", syncRunButton);
 
