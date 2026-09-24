@@ -81,7 +81,10 @@ function renderFx() {
 
   fixes.forEach((fix, index) => {
     const row = document.createElement("div");
-    row.className = "fx-row" + (fix.on ? " is-on" : "");
+    row.className = "fx-row";
+
+    const main = document.createElement("div");
+    main.className = "fx-item-main";
 
     const labelInput = makeInput(fix.label, "fx-input fx-input-label", "请输入提示词", "显示在按钮上的字", (input) => () => {
       const next = input.value.trim() || fixes[index].label;
@@ -90,28 +93,32 @@ function renderFx() {
       markDirty();
     });
 
-    const promptInput = makeInput(fix.prompt, "fx-input", "解释补充（可空）", "给模型的解释补充；留空就直接把提示词本身交给模型", (input) => () => {
+    const promptInput = makeInput(fix.prompt, "fx-input fx-input-desc", "解释补充（可空）", "给模型的解释补充；留空就直接把提示词本身交给模型", (input) => () => {
       fixes[index] = { ...fixes[index], prompt: input.value.trim() };
       markDirty();
     });
 
-    const check = document.createElement("label");
-    check.className = "fx-check";
-    check.title = `上卡片的提示词，最多同时勾 ${MAX_ON} 项`;
+    main.append(labelInput, promptInput);
+
+    // 开关：开着的才会上卡片
+    const sw = document.createElement("label");
+    sw.className = "fx-switch";
+    sw.title = `上卡片的提示词，最多同时开 ${MAX_ON} 项`;
     const box = document.createElement("input");
     box.type = "checkbox";
     box.checked = !!fix.on;
     box.addEventListener("change", () => {
       if (box.checked && fixes.filter((f) => f.on).length >= MAX_ON) {
         box.checked = false;
-        setFxStatus(`最多同时勾 ${MAX_ON} 项`, "err");
+        setFxStatus(`最多同时开 ${MAX_ON} 项`, "err");
         return;
       }
       fixes[index] = { ...fixes[index], on: box.checked };
-      row.classList.toggle("is-on", box.checked);
       markDirty();
     });
-    check.append(box);
+    const track = document.createElement("span");
+    track.className = "fx-switch-track";
+    sw.append(box, track);
 
     const del = document.createElement("button");
     del.type = "button";
@@ -124,7 +131,7 @@ function renderFx() {
       renderFx();
     });
 
-    row.append(del, labelInput, promptInput, check);
+    row.append(del, main, sw);
     list.appendChild(row);
   });
 }

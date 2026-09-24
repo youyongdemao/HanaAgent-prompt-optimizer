@@ -427,3 +427,109 @@ body {
 .fx-row.is-on .fx-check {
   opacity: 1;
 }
+/* ── 提示词清单：跟宿主那套设置分区对齐 ──
+   大圆角容器 + 细线分条 + 底部按钮；每条是「标题 + 一行说明」在左、开关在右。
+   选中不给任何底色遮罩，状态只由开关本身表达。 */
+.fx-card {
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  overflow: hidden;
+}
+
+.fx-list { display: grid; gap: 0; }
+
+.fx-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  border-radius: 0;
+  background: none;
+}
+
+.fx-row:last-child { border-bottom: 0; }
+
+.fx-item-main { display: grid; gap: 1px; min-width: 0; }
+
+/* 输入框当文本用：平时不画框，指上去或聚焦才浮出来 */
+.fx-input {
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: none;
+  padding: 2px 6px;
+  margin-left: -6px;
+  width: 100%;
+}
+
+.fx-input:hover { border-color: color-mix(in srgb, var(--text) 12%, transparent); }
+
+.fx-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 60%, transparent);
+  outline: none;
+}
+
+.fx-input-label { font-size: 13px; color: var(--text); }
+
+.fx-input-desc { font-size: 11.5px; color: color-mix(in srgb, var(--text) 58%, transparent); }
+
+/* 胶囊开关：跟宿主一个做法（深槽 + 白点） */
+.fx-switch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.fx-switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.fx-switch-track {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+  transition: background-color .18s;
+  pointer-events: none;
+}
+
+.fx-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform .18s;
+}
+
+.fx-switch input:checked + .fx-switch-track {
+  background: color-mix(in srgb, var(--accent) 78%, transparent);
+}
+
+.fx-switch input:checked + .fx-switch-track::after { transform: translateX(14px); }
+
+/* 底部按钮行：和上面那张列表连成一体 */
+.fx-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+}
