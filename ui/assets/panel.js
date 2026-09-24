@@ -550,6 +550,9 @@ function render() {
    * 用原生平滑滚动：自带缓进缓出，而且用户一滚动就自动被打断。
    * 没有滚动条、或者已经在那附近时不出手。
    */
+  /** 每次生成只自动划一次：结果刚冒头就划，不等出完 */
+  let scrolledThisRun = false;
+
   const scrollToResult = () => {
     try {
       const doc = document.scrollingElement || document.documentElement;
@@ -751,6 +754,7 @@ function render() {
 
   const runStream = async (revise = "", { labels = [], mode = "branch", at = -1 } = {}) => {
     if (streaming) return;
+    scrolledThisRun = false;
     const text = inputEl.value.trim();
     if (!text) {
       setError("先写点什么，再点优化。");
@@ -842,6 +846,12 @@ function render() {
             resultEl.value = cleanStreaming(acc);
             lenInfoEl.textContent = `${sourceText.length} → ${resultEl.value.length} 字`;
             followStream();
+            // 结果刚冒头就把视线带过去，不等出完（只划一次，免得每来一段都划）
+            if (!scrolledThisRun) {
+              scrolledThisRun = true;
+              if (resultWrap.hidden) resultWrap.hidden = false;
+              scrollToResult();
+            }
           } else if (event.type === "done") {
             finished = true;
             const finalText =
@@ -894,7 +904,6 @@ function render() {
             lenInfoEl.textContent = `${sourceText.length} → ${finalText.length} 字`;
             renderPanes();
             growResult();
-            scrollToResult();
           } else if (event.type === "error") {
             throw new Error(event.message || "生成失败。");
           }
