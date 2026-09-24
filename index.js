@@ -141,7 +141,7 @@ export default defineApp(async (sdk) => {
       }
     });
 
-    app.put("/fixes", async (c) => {
+    app.post("/fixes", async (c) => {
       let body = {};
       try {
         body = await c.req.json();

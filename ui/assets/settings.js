@@ -156,9 +156,12 @@ $("fxReset")?.addEventListener("click", () => {
 
 $("fxSave")?.addEventListener("click", async () => {
   setFxStatus("保存中…");
-  const ok = await pushFixes(fixes);
+  const r = await pushFixes(fixes);
   dirty = false;
-  setFxStatus(ok ? "已保存" : "没存到 App 那一侧，已留在本机", ok ? "ok" : "err");
+  setFxStatus(
+    r.ok ? "已保存" : `没存到 App 那一侧（HTTP ${r.status || "网络异常"}），已留在本机`,
+    r.ok ? "ok" : "err",
+  );
 });
 
 renderFx();

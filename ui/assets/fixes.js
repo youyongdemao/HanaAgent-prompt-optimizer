@@ -79,28 +79,34 @@ export function loadActiveFixes() {
  */
 export async function pullFixes() {
   try {
-    const res = await fetch(apiUrl("/fixes"), { headers: appHeaders() });
-    if (!res.ok) return null;
+    const res = await fetch(apiUrl("fixes"), { headers: appHeaders() });
+    if (!res.ok) {
+      console.warn("[prompt-optimizer] 读取清单失败", res.status);
+      return null;
+    }
     const body = await res.json().catch(() => null);
     return Array.isArray(body?.items) ? sanitize(body.items) : null;
-  } catch {
+  } catch (err) {
+    console.warn("[prompt-optimizer] 读取清单异常", err);
     return null;
   }
 }
 
-/** 把清单存到 App 那一侧（本地那份同时留作缓存） */
+/** 把清单存到 App 那一侧（本地那份同时留作缓存）。返回 {ok,status}，status 便于排障。 */
 export async function pushFixes(list) {
   const clean = sanitize(list) ?? [];
   saveFixes(clean);
   try {
-    const res = await fetch(apiUrl("/fixes"), {
-      method: "PUT",
+    const res = await fetch(apiUrl("fixes"), {
+      method: "POST",
       headers: appHeaders({ "content-type": "application/json" }),
       body: JSON.stringify({ items: clean }),
     });
-    return res.ok;
-  } catch {
-    return false;
+    if (!res.ok) console.warn("[prompt-optimizer] 保存清单失败", res.status, await res.text().catch(() => ""));
+    return { ok: res.ok, status: res.status };
+  } catch (err) {
+    console.warn("[prompt-optimizer] 保存清单异常", err);
+    return { ok: false, status: 0 };
   }
 }
 
