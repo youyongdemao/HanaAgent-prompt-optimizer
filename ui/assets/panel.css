@@ -695,8 +695,9 @@ body[data-color-mode="dark"] .po-error,
   align-items: start;
 }
 
-/* 卡片窄了就上下堆叠，别把两栏挤成两条竖线 */
-@media (max-width: 620px) {
+/* 卡片窄了就上下堆叠，别把两栏挤成两条竖线。
+   560 与下面「继续改」那一栏共用同一个阀值：两处要么都并排、要么都堆叠，不出现半吊子态。 */
+@media (max-width: 560px) {
   .po-compare {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1279,16 +1280,17 @@ body[data-color-mode="dark"] .po-error,
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* ── 窄屏（结果区改成上下堆叠）：三格按钮在上，改法选项在下，最多两行 ──
-   宽屏仍按原样并排，不动。 */
-@media (max-width: 620px) {
+/* ── 窄屏（结果区改成上下堆叠）：按钮在上，改法选项在下，最多两行 ──
+   宽屏仍按原样并排，不动。
+   堆叠时两块之间比并排时多留一点：并排有一整行的高度差帮忙分区，
+   堆起来就得靠空白分，不然按钮和候选词粘成一团。 */
+@media (max-width: 560px) {
   .po-revise-tools {
     flex-direction: column;
     align-items: stretch;
-    gap: 8px;
+    gap: 14px;
   }
 
-  .po-revise-tools .po-split,
   .po-revise-tools .po-actions {
     order: 1;
     align-self: flex-start;
