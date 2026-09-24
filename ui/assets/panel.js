@@ -360,11 +360,20 @@ function render() {
   // 卡片只负责用：清单从设置页配好的那份读（同一份本机配置）
   let fixes = loadActiveFixes();
 
-  // 清单的真身在 App 那一侧，本地那份只是缓存：先渲染，再拉一次对齐
-  void pullFixes().then((remote) => {
-    if (!remote) return;
-    const active = remote.filter((item) => item.on !== false);
-    applyFixes(active.length ? active : remote);
+  // 清单的真身在 App 那一侧，本地那份只是缓存：先渲染，再拉一次对齐。
+  // 切回卡片时也重拉：设置页改完不必把卡片关掉重开。
+  const fixSig = (list) => JSON.stringify(list.map((f) => [f.id, f.label, f.prompt, f.on]));
+  const pullIntoPanes = () => {
+    void pullFixes().then((remote) => {
+      if (!remote) return;
+      const active = remote.filter((item) => item.on !== false);
+      if (fixSig(active) === fixSig(fixes)) return; // 没变就别动，免得把已经勾好的清掉
+      applyFixes(active.length ? active : remote);
+    });
+  };
+  pullIntoPanes();
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") pullIntoPanes();
   });
 
   // 高度上报：只在真的变了（差 8px 以上）时发一次，且内容变短也要跟着缩，
