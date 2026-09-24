@@ -632,7 +632,7 @@ function render() {
     return out;
   };
 
-  const runStream = async (revise = "", { labels = [], mode = "branch" } = {}) => {
+  const runStream = async (revise = "", { labels = [], mode = "branch", from = null } = {}) => {
     if (streaming) return;
     const text = inputEl.value.trim();
     if (!text) {
@@ -654,6 +654,8 @@ function render() {
     // 这次站在哪一版上改的：记进大版本。日后「重写一次」要退回它，
     // 否则模型会贴着上一版微调，新出的那一版看起来没区別。
     const startAssistant = lastAssistant;
+    // 这次是不是从更早的节上开的支（由调用方判定）
+    const pendingFrom = from;
 
     setError("");
     streaming = true;
@@ -747,21 +749,18 @@ function render() {
                 : detail.length > 10
                   ? detail.slice(0, 10) + "…"
                   : detail;
-              // 顺序推进（在当前最新那一节上继续改）不算分叉；从更早的节上改才是一次分叉。
-              // 限一级：来源本身已是分叉的话，挂回它所在的主干。
-              const forkBranch = branches[activeBranch];
-              const isFork = activeBranch !== branches.length - 1 || Boolean(forkBranch && forkBranch.from);
-              const from = isFork
-                ? forkBranch && forkBranch.from
-                  ? { branch: forkBranch.from.branch, item: forkBranch.from.item }
-                  : { branch: activeBranch, item: activeItem }
-                : null;
+              // 分叉由调用方判定（从更早的节上改才算）；限一级：来源本身已是分叉就挂回主干
+              let resolvedFrom = pendingFrom;
+              if (resolvedFrom) {
+                const srcBranch = branches[resolvedFrom.branch];
+                if (srcBranch && srcBranch.from) resolvedFrom = srcBranch.from;
+              }
               branches.push({
                 label,
                 detail,
                 labels: pendingLabels.slice(),
                 base: startAssistant,
-                from,
+                from: resolvedFrom,
                 items: [item],
               });
               activeBranch = branches.length - 1;
@@ -917,10 +916,14 @@ function render() {
     }
 
     lastAssistant = base.assistant;
+    // 从更早的节上改 = 开分支；在最新那节上接着改就是顺序推进
+    const srcBranch = side === "right" && inspecting ? inspecting.branch : activeBranch;
+    const srcItem = side === "right" && inspecting ? inspecting.item : activeItem;
+    const from = srcBranch !== branches.length - 1 ? { branch: srcBranch, item: srcItem } : null;
     // 先把这条回显到输入框，让用户看清这次到底要发什么
     reviseEl.value = request;
     autoGrow(reviseEl);
-    void runStream(request, { labels, mode: "branch" }).finally(clearPicked);
+    void runStream(request, { labels, mode: "branch", from }).finally(clearPicked);
   };
 
   /** 「+」：不带新要求，在当前大版本上再重写一次，记成小版本 */
