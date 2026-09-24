@@ -429,7 +429,17 @@ function render() {
       const on =
         index === null ? inspecting === null : !!inspecting && inspecting.branch === index;
       btn.className = "po-chain-node" + (on ? " is-on" : "");
-      btn.textContent = index === null ? "原文" : branches[index].label;
+      if (index === null) {
+        btn.textContent = "原文";
+      } else {
+        const branch = branches[index];
+        // 后面跟上「正在看的那一次」的编号，例如 初版-2
+        const shown =
+          inspecting && inspecting.branch === index
+            ? Math.min(inspecting.item, branch.items.length - 1)
+            : branch.items.length - 1;
+        btn.textContent = `${branch.label}-${shown + 1}`;
+      }
       // 完整要求放悬停提示，不占标题位置
       btn.title = index === null ? "最初写下的那段" : branches[index].detail || branches[index].label;
       btn.addEventListener("click", () => inspectVersion(index));
@@ -461,8 +471,9 @@ function render() {
       growRaf = 0;
     }
     resultEl.scrollTop = 0;
-    // 左栏标题只留编号与「+」，不再写「最新一版」这类字样
-    latestTagEl.textContent = "";
+    // 左栏标题：先是大版本标题（这次的要求），后面才是编号与「+」
+    const branch = branches[activeBranch];
+    latestTagEl.textContent = branch ? branch.label : "";
     latestLenEl.textContent = item ? `${item.text.length} 字` : "";
     lenInfoEl.textContent = latest ? `${sourceText.length} → ${latest.text.length} 字` : "";
     renderVersionTabs();
@@ -626,6 +637,9 @@ function render() {
     // 这次用了哪几个改法 + 完整要求，成功时要记进链条
     const pendingLabels = isRevise ? labels : [];
     const pendingDetail = isRevise ? revise : "";
+    // 这次站在哪一版上改的：记进大版本。日后「重写一次」要退回它，
+    // 否则模型会贴着上一版微调，新出的那一版看起来没区別。
+    const startAssistant = lastAssistant;
 
     setError("");
     streaming = true;
@@ -719,7 +733,13 @@ function render() {
                 : detail.length > 10
                   ? detail.slice(0, 10) + "…"
                   : detail;
-              branches.push({ label, detail, items: [item] });
+              branches.push({
+                label,
+                detail,
+                labels: pendingLabels.slice(),
+                base: startAssistant,
+                items: [item],
+              });
               activeBranch = branches.length - 1;
               activeItem = 0;
               // 右栏默认停在上一个大版本的最新一次重写，方便直接比
@@ -729,7 +749,7 @@ function render() {
                 : null;
             } else {
               // 首轮优化：第一个大版本
-              branches.push({ label: "初版", detail: "从原文直接优化", items: [item] });
+              branches.push({ label: "初版", detail: "从原文直接优化", labels: [], base: null, items: [item] });
               activeBranch = 0;
               activeItem = 0;
               inspecting = null;
@@ -838,14 +858,24 @@ function render() {
     void runStream("");
   });
 
-  /** 「改左面」基于左栏那一次，「改右面」基于右栏那一次：两者都算带了新要求 → 新大版本 */
+  /** 纯重写：退回这一大版本的基底，用同样的要求再出一版（这样才能和上一版有区别） */
+  const runRewriteOf = (branch) => {
+    if (!branch) return;
+    lastAssistant = branch.base || null;
+    void runStream(branch.detail || "按同样的要求再写一版", {
+      labels: branch.labels || [],
+      mode: "rewrite",
+    }).finally(clearPicked);
+  };
+
+  /**
+   * 「改左面」基于左栏那一次，「改右面」基于右栏那一次。
+   * 写了要求或勾了改法 → 那是新要求 → 记成新大版本；
+   * 什么都没写 → 和那个「+」一样，只是重写一次，算小版本。
+   */
   const runRevise = (side) => {
     const labels = fixes.filter((item) => pickedFixes.has(item.id)).map((item) => item.label);
     const request = composeRevise();
-    if (!request) {
-      reviseEl.focus();
-      return;
-    }
     const base = side === "right" ? inspectedItem() : currentItem() || latestItemOf(latestBranch());
     if (!base || !base.assistant) {
       setError(
@@ -855,6 +885,13 @@ function render() {
       );
       return;
     }
+
+    if (!request) {
+      // 没有新要求 → 等同「+」：在当前大版本上再重写一次
+      runRewriteOf(branches[activeBranch]);
+      return;
+    }
+
     lastAssistant = base.assistant;
     // 先把这条回显到输入框，让用户看清这次到底要发什么
     reviseEl.value = request;
@@ -864,13 +901,7 @@ function render() {
 
   /** 「+」：不带新要求，在当前大版本上再重写一次，记成小版本 */
   const runAgain = () => {
-    const base = latestItemOf(branches[activeBranch]) || currentItem();
-    if (!base || !base.assistant) {
-      setError("这一版还没有可重写的底稿。");
-      return;
-    }
-    lastAssistant = base.assistant;
-    void runStream("按同样的要求再写一版", { labels: [], mode: "rewrite" }).finally(clearPicked);
+    runRewriteOf(branches[activeBranch]);
   };
 
   reviseLeft.addEventListener("click", () => runRevise("left"));
