@@ -1077,3 +1077,21 @@ body[data-color-mode="dark"] .po-error,
     display: inline;
   }
 }
+/* ── 改左面|改右面：两格各自独立，光晕层需要定位上下文 ── */
+.po-split-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+/* 撤掉整块一起反应：亮的是被鼠标指着的那一格 */
+.po-split:hover {
+  border-color: var(--po-glass-border);
+  box-shadow: inset 0 1px 0 var(--po-glass-hi), 0 1px 6px rgba(0, 0, 0, .12);
+  transform: none;
+}
+
+.po-split-btn:hover:not(:disabled) {
+  color: var(--po-ink);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--bg-card) 84%, transparent), color-mix(in srgb, var(--bg-card) 52%, transparent));
+  box-shadow: inset 0 1px 0 var(--po-glass-hi);
+}

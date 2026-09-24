@@ -143,7 +143,7 @@ let glowX = 0;
 let glowY = 0;
 let glowPrev = null;
 
-const GLOW_TARGET = ".po-btn, .po-tbtn";
+const GLOW_TARGET = ".po-btn, .po-tbtn, .po-split-btn";
 
 function ensureLayer(parent, cls) {
   for (const child of parent.children) {
