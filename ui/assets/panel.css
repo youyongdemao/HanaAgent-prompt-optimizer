@@ -38,7 +38,8 @@
 html,
 body,
 #root {
-  min-height: 100%;
+  /* 不用 min-height:100%：那会让 body 至少和 iframe 一样高，
+     于是「内容高度」永远不少于当前视口，高度只能涨不能缩，内容变短就留一片空白 */
   margin: 0;
   max-width: 100%;
   /* clip 而非 hidden：截断横向溢出，又不会把纵向可滚动性一起改掉 */
@@ -984,4 +985,8 @@ body[data-color-mode="dark"] .po-error,
 .po-revise-tools .po-chip-sm {
   padding: 3px 9px;
   font-size: 10.5px;
+}
+/* 结果操作行：只留复制，靠右收尾 */
+.po-result-actions {
+  justify-content: flex-end;
 }

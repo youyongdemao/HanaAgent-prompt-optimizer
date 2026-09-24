@@ -284,8 +284,6 @@ function render() {
           placeholder="不满意？说要改哪儿；上面的方向可以多选"></textarea>
         <div class="po-result-actions">
           <button id="po-copy" class="po-btn primary" type="button"><span class="po-btn-tx">复制最新一版</span></button>
-          <button id="po-back" class="po-btn" type="button"><span class="po-btn-tx">替换原文</span></button>
-          <button id="po-again" class="po-btn" type="button"><span class="po-btn-tx">再来一版</span></button>
         </div>
       </section>
 
@@ -303,7 +301,6 @@ function render() {
   const resultEl = document.getElementById("po-result");
   const lenInfoEl = document.getElementById("po-leninfo");
   const copyBtn = document.getElementById("po-copy");
-  const backBtn = document.getElementById("po-back");
   const reviseEl = document.getElementById("po-revise");
   const reviseQuick = document.getElementById("po-revise-quick");
   const resultTitleEl = document.getElementById("po-result-title");
@@ -315,7 +312,6 @@ function render() {
   const versionTabs = document.getElementById("po-version-tabs");
   const reviseLeft = document.getElementById("po-revise-left");
   const reviseRight = document.getElementById("po-revise-right");
-  const againBtn = document.getElementById("po-again");
 
   let style = "general";
   let streaming = false;
@@ -554,7 +550,7 @@ function render() {
     return out;
   };
 
-  const runStream = async (revise = "", { append = false, labels = [] } = {}) => {
+  const runStream = async (revise = "", { labels = [] } = {}) => {
     if (streaming) return;
     const text = inputEl.value.trim();
     if (!text) {
@@ -575,12 +571,10 @@ function render() {
     syncRunButton();
 
     if (!isRevise) {
-      // 「再来一版」不丢已有版本；普通优化则重开一轮，也换掉对比用的原文
-      if (!append) {
-        versions = [];
-        inspecting = null;
-        viewing = null;
-      }
+      // 新的一轮：丢掉旧版本，换掉对比用的原文
+      versions = [];
+      inspecting = null;
+      viewing = null;
       sourceText = text;
       resultEl.value = "";
       renderPanes();
@@ -652,9 +646,7 @@ function render() {
               ? pendingLabels.length
                 ? pendingLabels.join("、")
                 : "手写要求"
-              : append
-                ? "另出一版"
-                : "初版";
+              : "初版";
             versions.push({ text: finalText, assistant: event.assistant || null, label });
             // 右边默认停在这一版的上一版，方便直接比
             inspecting = versions.length >= 2 ? versions.length - 2 : null;
@@ -801,33 +793,6 @@ function render() {
   });
 
   copyBtn.addEventListener("click", copyResult);
-
-  // 把当前这一版搬回输入框：方便换场景再优化一轮，或者手工再改两笔
-  backBtn.addEventListener("click", () => {
-    const text = resultEl.value.trim();
-    if (!text) return;
-    inputEl.value = text;
-    resultEl.value = "";
-    resultWrap.hidden = true;
-    lastAssistant = null;
-    sourceText = "";
-    clearPicked();
-    versions = [];
-    inspecting = null;
-    renderPanes();
-    setError("");
-    syncCount();
-    inputEl.focus();
-    toast("已放回输入框，可以改完再优化", "success");
-  });
-
-  // 基准开关那段已删：改成「左改 / 右改」两个动作按钮
-
-  // 再来一版：同一段原文另出一版
-  againBtn.addEventListener("click", () => {
-    if (streaming) return;
-    void runStream("", { append: true });
-  });
 
   // 补充要求与继续改都是多行框，跟着内容长（一行起、六行封顶）
   for (const el of [extraEl, reviseEl]) {
