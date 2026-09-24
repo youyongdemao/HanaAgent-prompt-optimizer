@@ -630,7 +630,10 @@ function render() {
       return;
     }
     const isRevise = Boolean(revise);
-    if (isRevise && !lastAssistant) {
+    const isRewrite = mode === "rewrite";
+    // 重写（「+」或没写要求的改面）允许没有基底：初版本来就是从原文生成的，
+    // 它的重写就退回原文再出一版。只有「带新要求」时才必须有基底可改。
+    if (isRevise && !isRewrite && !lastAssistant) {
       setError("还没有可修改的结果，先优化一次。");
       return;
     }
