@@ -1263,3 +1263,10 @@ body[data-color-mode="dark"] .po-error,
   color: var(--po-ink-soft);
   background: color-mix(in srgb, var(--text) 10%, transparent);
 }
+/* ── chips：两种状态分开 ──
+   is-picked 实线强调（这轮勾上要用）；is-used 虚线（当前显示的那一版当初就是用它的） */
+.po-chip-sm.is-used {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  color: var(--po-ink-soft);
+}

@@ -613,10 +613,10 @@ function render() {
   const makeFixChip = (fix) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    // 选中态只有一种：「这一版用过」或「这轮勾上要用」都算选中，不用虚实线区分
+    // 两种状态分开：is-picked 实线 = 这轮勾上要用；is-used 虚线 = 当前显示的那一版当初用过它
     const used = new Set((branches[activeBranch] && branches[activeBranch].labels) || []);
-    const on = pickedFixes.has(fix.id) || used.has(fix.label);
-    btn.className = "po-chip-sm" + (on ? " is-picked" : "");
+    btn.className =
+      "po-chip-sm" + (pickedFixes.has(fix.id) ? " is-picked" : "") + (used.has(fix.label) ? " is-used" : "");
     btn.dataset.fixId = fix.id;
     btn.title = used.has(fix.label) ? `${fix.prompt}（当前这一版用过）` : fix.prompt;
     btn.textContent = fix.label;
