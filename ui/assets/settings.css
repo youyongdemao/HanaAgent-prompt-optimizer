@@ -445,3 +445,42 @@ body {
   padding: 9px 12px;
   border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
 }
+/* ── 提示词清单：一条一行，两个框并排 ──
+   行内顺序：× ｜ 提示词框 ｜ 说明框 ｜ 开关。两个框都带边框，聚焦时走主题色。 */
+.fx-row {
+  display: grid;
+  grid-template-columns: auto 132px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  border-radius: 0;
+  background: none;
+}
+
+.fx-row:last-child { border-bottom: 0; }
+
+.fx-input {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+  color: var(--text);
+  padding: 5px 9px;
+  margin: 0;
+  font: inherit;
+  font-size: 12px;
+}
+
+.fx-input:hover { border-color: color-mix(in srgb, var(--text) 24%, transparent); }
+
+.fx-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+}
+
+.fx-input-label { font-size: 12px; }
+.fx-input-desc { font-size: 12px; color: var(--text); }

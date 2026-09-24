@@ -83,9 +83,6 @@ function renderFx() {
     const row = document.createElement("div");
     row.className = "fx-row";
 
-    const main = document.createElement("div");
-    main.className = "fx-item-main";
-
     const labelInput = makeInput(fix.label, "fx-input fx-input-label", "请输入提示词", "显示在按钮上的字", (input) => () => {
       const next = input.value.trim() || fixes[index].label;
       fixes[index] = { ...fixes[index], label: next };
@@ -97,8 +94,6 @@ function renderFx() {
       fixes[index] = { ...fixes[index], prompt: input.value.trim() };
       markDirty();
     });
-
-    main.append(labelInput, promptInput);
 
     // 开关：开着的才会上卡片
     const sw = document.createElement("label");
@@ -131,7 +126,7 @@ function renderFx() {
       renderFx();
     });
 
-    row.append(del, main, sw);
+    row.append(del, labelInput, promptInput, sw);
     list.appendChild(row);
   });
 }
