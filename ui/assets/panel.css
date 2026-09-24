@@ -1288,7 +1288,8 @@ body[data-color-mode="dark"] .po-error,
     gap: 8px;
   }
 
-  .po-revise-tools .po-split {
+  .po-revise-tools .po-split,
+  .po-revise-tools .po-actions {
     order: 1;
     align-self: flex-start;
   }
@@ -1310,4 +1311,16 @@ body[data-color-mode="dark"] .po-error,
 .po-chip-sm.is-used {
   border-color: color-mix(in srgb, var(--accent) 58%, transparent);
   color: color-mix(in srgb, var(--accent) 82%, var(--po-ink));
+}
+/* ── 「继续改」这一栏：两格按钮回到页面自己的主次按钮那套（同「优化 / 清空」）──
+   不再用「外框 + 三格」那个拼接件：两个独立玻璃胶囊、8px 间距，
+   改进（主操作、实心）在左，重写（次操作、描边）在右。
+   按钮自带 nowrap 与不收缩：窄卡片里宁可整组挤到下一行，也不把字掰成两行。 */
+.po-revise-tools .po-actions {
+  order: 2;
+}
+
+.po-revise-tools .po-actions .po-btn {
+  flex: none;
+  white-space: nowrap;
 }

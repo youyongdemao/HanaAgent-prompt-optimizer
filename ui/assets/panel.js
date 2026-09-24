@@ -295,10 +295,9 @@ function render() {
         </div>
 
         <div class="po-revise-tools">
-          <div class="po-split">
-            <button id="po-revise-picked" class="po-split-btn" type="button" title="从流程图上选中的那一项开始改进（带要求），它后面的版本会被新结果取代">以所选项改进</button>
-            <button id="po-revise-left" class="po-split-btn" type="button" title="基于左栏这一版重出一版（不写要求时就等于「+」）">重写</button>
-            <button id="po-revise-right" class="po-split-btn" type="button" title="基于右栏那一版，按新要求改进">改进</button>
+          <div class="po-actions">
+            <button id="po-revise-right" class="po-btn primary" type="button" title="按新要求改进，接在最后一版之后">改进</button>
+            <button id="po-revise-left" class="po-btn" type="button" title="不改要求，基于左栏这一版再出一版（等于上面的「+」）">重写</button>
           </div>
           <div class="po-revise-quick" id="po-revise-quick"></div>
         </div>
@@ -328,7 +327,6 @@ function render() {
   const copyBtn = document.getElementById("po-copy");
   const copyPickedBtn = document.getElementById("po-copy-picked");
   const reviseEl = document.getElementById("po-revise");
-  const revisePickedBtn = document.getElementById("po-revise-picked");
   const reviseQuick = document.getElementById("po-revise-quick");
   const resultTitleEl = document.getElementById("po-result-title");
   const chainEl = document.getElementById("po-chain");
@@ -668,7 +666,7 @@ function render() {
     }
     renderPanes();
     growResult();
-    // 换了选中项，「以所选项改进」的可否跟着变
+    // 换了选中项，按钮的可用状态跟着变
     syncRunButton();
   };
 
@@ -791,18 +789,12 @@ function render() {
     runBtn.disabled = false;
     runBtn.classList.toggle("is-stop", streaming);
     runTx.textContent = streaming ? "停止" : "优化";
-    // 两个改进都得有要求才发得出去；重写相反，没要求才是它。两组互斥。
+    // 「改进」要有要求才发得出去；「重写」相反，没要求才是它。两者互斥。
     const hasRequirement = reviseEl.value.trim().length > 0 || pickedFixes.size > 0;
     reviseLeft.disabled = streaming || hasRequirement;
     reviseLeft.title = hasRequirement
       ? "写了要求请点「改进」；「重写」是不改要求再出一版"
       : "基于左栏这一版重出一版（等于上面的「+」）";
-    revisePickedBtn.disabled = streaming || !hasRequirement || !inspecting;
-    revisePickedBtn.title = !inspecting
-      ? "先在流程图上点一节（「原文」不算），再以所选项改进"
-      : hasRequirement
-        ? "从流程图上选中的那一项开始改进，它后面的版本会被取代"
-        : "先勾改进方向或写一句要求，再以所选项改进";
     reviseRight.disabled = streaming || !hasRequirement;
     reviseRight.title = hasRequirement
       ? "从流程图的最后一版开始改进，接在末尾"
@@ -1107,32 +1099,19 @@ function render() {
   };
 
   /**
-   * 三格的分工，差别只在「底稿从哪来」：
-   *   picked  从流程图上选中的那一项开始改进（带要求），它后面的版本会被新结果取代
+   * 两格的分工，差别只在「底稿从哪来」：
    *   latest  从流程图的最后一版开始改进（带要求），接在末尾
-   *   left    左栏当前那版（不带要求时等同那个「+」，算小版本）
+   *   left    左栏当前那版（不带要求时等同于那个「+」，算小版本）
    */
   const runRevise = (from) => {
     const labels = fixes.filter((item) => pickedFixes.has(item.id)).map((item) => item.label);
     const request = composeRevise();
-    // 以所选项改进要求真的选中了某一节（停在「原文」不算），否则会退成以最新版改
-    if (from === "picked" && !inspecting) {
-      setError("先在流程图上点一节（「原文」不算），再以所选项改进。");
-      return;
-    }
-    const usePicked = from === "picked";
-    // 选中的那项不在时退回最后一版，不打断操作
-    const base = usePicked
-      ? inspectedItem() || latestItemOf(latestBranch())
-      : from === "latest"
+    const base =
+      from === "latest"
         ? latestItemOf(latestBranch())
         : currentItem() || latestItemOf(latestBranch());
     if (!base || !base.assistant) {
-      setError(
-        from === "picked"
-          ? "先去流程图上点一节，再以所选项改进。"
-          : "还没有可修改的结果，先优化一次。",
-      );
+      setError("还没有可修改的结果，先优化一次。");
       return;
     }
 
@@ -1143,10 +1122,8 @@ function render() {
     }
 
     lastAssistant = base.assistant;
-    // 新版本占住哪一节：从「被点的那节」往后一位。这样从中间改会取代后面的版本，
-    // 而不是接在链条尾巴上。
-    // 从所选项改进 → 占住它后面那一节（后面的被取代）；改进 / 重写 → 接在末尾
-    const at = (usePicked ? inspecting.branch : branches.length - 1) + 1;
+    // 新版本接在链条末尾（「从中间取代后面」那条路已随三格一起拿掉）
+    const at = branches.length;
     // 先把这条回显到输入框，让用户看清这次到底要发什么
     reviseEl.value = request;
     autoGrow(reviseEl);
@@ -1158,8 +1135,7 @@ function render() {
     runRewriteOf(branches[activeBranch]);
   };
 
-  // 三格：以所选项改进（带要求，取代它后面）｜重写（不带要求）｜改进（带要求，接在最后一版之后）
-  revisePickedBtn.addEventListener("click", () => runRevise("picked"));
+  // 两格：改进（带要求，接在最后一版之后）｜重写（不带要求，左栏那版再出一版）
   reviseLeft.addEventListener("click", () => runRevise("left"));
   reviseRight.addEventListener("click", () => runRevise("latest"));
   // 与基础提示词一致：Enter 执行，Shift + Enter 换行
