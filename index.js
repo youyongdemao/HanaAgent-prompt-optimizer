@@ -51,6 +51,37 @@ async function sampleOptimized(sdk, { text, style, extra, maxTokens, callToken }
   return typeof optimized === "string" ? stripWrapping(optimized) : "";
 }
 
+/** 问模型：这条提示词还能往哪些方向改。只输出 JSON 数组。 */
+const SUGGEST_SYSTEM = [
+  "你在帮用户想一条提示词还能往哪些方向改。",
+  "读完用户给的提示词，给 4 到 6 个贴合它内容与用途的改进方向。",
+  "方向要具体到这条例子上，别给放之四海而皆准的套话。",
+  '只输出 JSON 数组，每项形如 {"label":"短标签","prompt":"一句具体做法"}，不要任何别的文字。',
+].join("\n");
+
+/** 从模型输出里抠出 JSON 数组（模型偶尔会裹一层解释或代码块） */
+function parseSuggestedFixes(raw) {
+  const text = typeof raw === "string" ? raw : "";
+  const start = text.indexOf("[");
+  const end = text.lastIndexOf("]");
+  if (start < 0 || end <= start) return null;
+  try {
+    const list = JSON.parse(text.slice(start, end + 1));
+    if (!Array.isArray(list)) return null;
+    const out = [];
+    for (const item of list) {
+      if (!item || typeof item !== "object") continue;
+      const label = String(item.label ?? "").trim().slice(0, 12);
+      const prompt = String(item.prompt ?? "").trim().slice(0, 120);
+      if (!label || !prompt) continue;
+      out.push({ id: "s" + out.length, label, prompt });
+    }
+    return out.length ? out : null;
+  } catch {
+    return null;
+  }
+}
+
 export default defineApp(async (sdk) => {
   await sdk.logger.info("prompt-optimizer loaded");
 
@@ -72,6 +103,32 @@ export default defineApp(async (sdk) => {
         repoUrl: `https://github.com/${DEFAULT_REPO}`,
       }),
     );
+
+    // 根据基础提示词的内容，给几条「这条适合往哪改」的方向。
+    // 卡片在输入停下来后调一次；建议只是建议，拿不到就让卡片用默认清单。
+    app.post("/suggest-fixes", async (c) => {
+      let body = {};
+      try {
+        body = await c.req.json();
+      } catch {
+        body = {};
+      }
+      const text = typeof body?.text === "string" ? body.text.trim() : "";
+      if (text.length < 8) return c.json({ ok: false, error: "TOO_SHORT" }, 400);
+      try {
+        const { text: raw } = await sdk.models.utility({
+          requestId: randomUUID(),
+          scope: "app",
+          systemPrompt: SUGGEST_SYSTEM,
+          messages: [{ role: "user", content: text.slice(0, 2000) }],
+          temperature: 0.5,
+          maxTokens: 400,
+        });
+        return c.json({ ok: true, items: parseSuggestedFixes(raw) });
+      } catch (err) {
+        return c.json({ ok: false, error: "MODEL_FAILED", message: String(err?.message || err) }, 502);
+      }
+    });
 
     // 流式改写：结果边生成边推给卡片。模型用宿主当前焦点模型（流式必须显式指定
     // provider/model，不能像 utility 那样省）。事件按 NDJSON 一行一个往下发。

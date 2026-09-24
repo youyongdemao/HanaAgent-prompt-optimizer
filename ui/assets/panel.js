@@ -3,7 +3,7 @@
 // 应用自己的后端接口走 app-api.js（/api/apps/prompt-optimizer/routes/）。
 import { hana } from "./sdk.js";
 import { apiUrl, appHeaders } from "./app-api.js";
-import { loadFixes } from "./fixes.js";
+import { DEFAULT_FIXES, loadFixes } from "./fixes.js";
 
 async function toast(message, type = "info") {
   try {
@@ -348,7 +348,7 @@ function render() {
   // 勾选的改法（可多选）：点「改」时和手写的要求合并成一条
   const pickedFixes = new Set();
   // 卡片只负责用：清单从设置页配好的那份读（同一份本机配置）
-  const fixes = loadFixes();
+  let fixes = loadFixes();
 
   // 高度上报：只在真的变了（差 8px 以上）时发一次，且内容变短也要跟着缩，
   // 否则卡片底下会空一大片。生成期间不走这里（那时高度一直变，反复叫醒宿主会把滚动打回顶部）。
@@ -570,10 +570,10 @@ function render() {
   const makeFixChip = (fix) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    // is-picked = 这轮勾上的准备用；is-used = 当前显示的这一版当初就是用这个改法做的
+    // 选中态只有一种：「这一版用过」或「这轮勾上要用」都算选中，不用虚实线区分
     const used = new Set((branches[activeBranch] && branches[activeBranch].labels) || []);
-    btn.className =
-      "po-chip-sm" + (pickedFixes.has(fix.id) ? " is-picked" : "") + (used.has(fix.label) ? " is-used" : "");
+    const on = pickedFixes.has(fix.id) || used.has(fix.label);
+    btn.className = "po-chip-sm" + (on ? " is-picked" : "");
     btn.dataset.fixId = fix.id;
     btn.title = used.has(fix.label) ? `${fix.prompt}（当前这一版用过）` : fix.prompt;
     btn.textContent = fix.label;
@@ -618,6 +618,47 @@ function render() {
   };
 
   /** 生成中主按钮变成「停止」，其余输入先按住 */
+  /** 换成一份新清单（模型建议的，或退回默认的），并刷新 chips */
+  const applyFixes = (list) => {
+    if (!Array.isArray(list) || !list.length) return;
+    fixes = list;
+    pickedFixes.clear();
+    renderFixLists();
+    syncReviseHint();
+    syncRunButton();
+  };
+
+  /**
+   * 基础提示词停下笔后，问一次「这条适合往哪改」，用它换掉 chips 清单。
+   * 输入没停不发、后又改了就作废上一次结果，免得旧建议盖住新的。
+   */
+  let suggestTimer = 0;
+  let suggestSeq = 0;
+  const scheduleFixSuggestion = () => {
+    const text = inputEl.value.trim();
+    const seq = ++suggestSeq;
+    clearTimeout(suggestTimer);
+    if (text.length < 8) {
+      applyFixes(DEFAULT_FIXES.map((item) => ({ ...item })));
+      return;
+    }
+    suggestTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(apiUrl("/suggest-fixes"), {
+          method: "POST",
+          headers: appHeaders({ "content-type": "application/json" }),
+          body: JSON.stringify({ text }),
+        });
+        if (!res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (seq !== suggestSeq) return; // 期间又改了输入，这次结果作废
+        applyFixes(data?.items);
+      } catch {
+        /* 拿不到建议就留着现有清单，不打扰使用 */
+      }
+    }, 700);
+  };
+
   /** 「继续改」输入框的提示跟着这轮勾选的改法实时变，一眼知道这次要改什么 */
   const syncReviseHint = () => {
     const picked = fixes.filter((item) => pickedFixes.has(item.id)).map((item) => item.label);
@@ -879,6 +920,8 @@ function render() {
   }
 
   inputEl.addEventListener("input", syncCount);
+  // 提示词一改，就重新问一次「这条适合往哪改」
+  inputEl.addEventListener("input", scheduleFixSuggestion);
   // 输入框里一有要求，「重写」就腾出位置给「改进」
   reviseEl.addEventListener("input", syncRunButton);
 
