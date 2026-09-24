@@ -716,14 +716,20 @@ function render() {
     runBtn.disabled = false;
     runBtn.classList.toggle("is-stop", streaming);
     runTx.textContent = streaming ? "停止" : "优化";
-    // 写了要求或勾了改法 → 那是「改进」的活；「重写」只负责「不改要求再出一版」
+    // 两个改进都得有要求才发得出去；重写相反，没要求才是它。两组互斥。
     const hasRequirement = reviseEl.value.trim().length > 0 || pickedFixes.size > 0;
     reviseLeft.disabled = streaming || hasRequirement;
     reviseLeft.title = hasRequirement
       ? "写了要求请点「改进」；「重写」是不改要求再出一版"
       : "基于左栏这一版重出一版（等于上面的「+」）";
-    reviseRight.disabled = streaming;
-    revisePickedBtn.disabled = streaming;
+    revisePickedBtn.disabled = streaming || !hasRequirement;
+    revisePickedBtn.title = hasRequirement
+      ? "从流程图上选中的那一项开始改进，它后面的版本会被取代"
+      : "先勾改进方向或写一句要求，再以所选项改进";
+    reviseRight.disabled = streaming || !hasRequirement;
+    reviseRight.title = hasRequirement
+      ? "从流程图的最后一版开始改进，接在末尾"
+      : "先勾改进方向或写一句要求，再点改进";
     clearBtn.disabled = streaming;
     // 刚被禁用的按钮上如果正停着光晕，立刻收掉，不用等鼠标动
     dropStaleGlow();
