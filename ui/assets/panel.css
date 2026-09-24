@@ -1305,3 +1305,9 @@ body[data-color-mode="dark"] .po-error,
 .po-pane-head {
   min-width: 0;
 }
+/* ── 历史轮用过的那几个：虚线留着做形状区分，颜色交给主题色 ──
+   （原来描边和字都太淡，看着像"不可点"而不是"这一版用过"） */
+.po-chip-sm.is-used {
+  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+  color: color-mix(in srgb, var(--accent) 82%, var(--po-ink));
+}
