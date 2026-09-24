@@ -1270,3 +1270,12 @@ body[data-color-mode="dark"] .po-error,
   border-color: color-mix(in srgb, var(--accent) 42%, transparent);
   color: var(--po-ink-soft);
 }
+/* ── 链条节点：一行放不下就省略，全文在悬停提示里 ──
+   不压缩是关键：容器已改成不换行，若节点还能被压扁，标题就会一个字一行。 */
+.po-chain-node {
+  flex: none;
+  max-width: 132px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
