@@ -489,92 +489,70 @@ body[data-color-mode="dark"] .po,
   display: none;
 }
 
-/* ── 迭代精修：输入框与三个快捷合成一条 ── */
+/* ── 迭代精修：在上一版结果上继续改 ── */
 .po-revise {
   display: flex;
   gap: 8px;
   min-width: 0;
 }
 
-/* 边框与背景挂在容器上，输入框自己是透明的：这样才真的是一个整体 */
-.po-revise-field {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--text) 3.5%, transparent);
-  padding: 3px 5px 3px 11px;
-  transition: border-color .16s, box-shadow .16s;
-}
-
-/* 聚焦态提到容器上，否则点快捷时描边会在输入框那圈闪一下 */
-.po-revise-field:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
-}
-
 .po-revise-input {
   flex: 1;
   min-width: 0;
-  border: 0;
-  background: none;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--text) 3.5%, transparent);
   color: var(--po-ink);
-  padding: 7px 0;
+  padding: 8px 11px;
   font: inherit;
   font-size: 12px;
+  transition: border-color .16s, box-shadow .16s;
 }
 
 .po-revise-input:focus {
   outline: none;
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .po-revise-input::placeholder {
   color: var(--po-ink-faint);
 }
 
-/* 快捷贴在输入条右端：自身不收缩也不换行，空间不够时先让输入框变窄 */
+/* 三个快捷是一句话的缩写：长得像提示文字，不像一排按钮 */
 .po-revise-quick {
   display: flex;
-  flex: none;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--po-ink-faint);
 }
 
-.po-chip-sm {
-  flex: none;
+.po-quick-link {
   appearance: none;
-  border: 1px solid color-mix(in srgb, var(--text) 13%, transparent);
-  background: color-mix(in srgb, var(--bg-card) 46%, transparent);
-  color: var(--po-ink-soft);
-  border-radius: 999px;
-  padding: 3px 9px;
+  border: 0;
+  background: none;
+  margin: 0;
+  padding: 0;
+  color: inherit;
   font: inherit;
-  font-size: 10.5px;
-  line-height: 1.3;
-  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1.4;
   cursor: pointer;
-  transition: background .16s, color .16s, border-color .16s;
+  transition: color .16s;
 }
 
-.po-chip-sm:hover {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
-  color: var(--po-ink);
+.po-quick-link:hover {
+  color: color-mix(in srgb, var(--accent) 55%, var(--po-ink));
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
 }
 
-.po-chip-sm:active {
-  transform: scale(.96);
-}
-
-/* 卡片再窄就收紧快捷的内边距，而不是换行把输入框挤成半行 */
-@media (max-width: 480px) {
-  .po-chip-sm {
-    padding: 3px 7px;
-    font-size: 10px;
-  }
+.po-quick-dot {
+  opacity: .55;
+  user-select: none;
 }
 
 @keyframes poLayerIn {
