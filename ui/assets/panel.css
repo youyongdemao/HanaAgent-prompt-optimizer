@@ -1095,3 +1095,16 @@ body[data-color-mode="dark"] .po-error,
   background: linear-gradient(160deg, color-mix(in srgb, var(--bg-card) 84%, transparent), color-mix(in srgb, var(--bg-card) 52%, transparent));
   box-shadow: inset 0 1px 0 var(--po-glass-hi);
 }
+/* 右改/左改 每一格自己的 hover：强调色描边 + 强调色底 + 光晕，
+   比"底色微微一变"明确得多，跟其他按钮同一套观感 */
+.po-split-btn:hover:not(:disabled) {
+  color: var(--po-ink);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 18%, transparent), color-mix(in srgb, var(--accent) 8%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent), 0 2px 12px var(--po-glow);
+}
+
+/* 外框在悬停时也跟着提亮一点，但不做整体上浮（那会两格一起动） */
+.po-split:has(.po-split-btn:hover) {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: 0 2px 14px var(--po-glow), inset 0 1px 0 var(--po-glass-hi);
+}
