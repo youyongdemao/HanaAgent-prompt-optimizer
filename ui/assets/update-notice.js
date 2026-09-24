@@ -115,6 +115,10 @@ function applyResult(info) {
   const latest = el("siUpdateLatest");
   if (!latest) return;
 
+  // 没有新版就别摆「前往下载更新」：点过去只会看到一堆历史版本
+  const releaseBtn = el("siUpdateRelease");
+  if (releaseBtn) releaseBtn.hidden = !info.updateAvailable;
+
   if (info.updateAvailable) {
     latest.textContent = `v${info.latestVersion}${info.publishedAt ? " · " + shortDate(info.publishedAt) : ""}`;
     setVerdict("有新版本可用", "new");
@@ -153,6 +157,10 @@ function open(info, focusButton = true) {
   if (current) current.textContent = currentVersion ? "v" + currentVersion : "v–";
   const latest = el("siUpdateLatest");
   if (latest) latest.textContent = "—";
+
+  // 检查中先摆出按钮，结果回来再决定要不要藏
+  const releaseBtn = el("siUpdateRelease");
+  if (releaseBtn) releaseBtn.hidden = false;
 
   if (info) applyResult(info);
   // 自检自动弹出时不抢焦点：用户可能正在拨开关
