@@ -6,6 +6,7 @@ import { apiFetch } from "./app-api.js";
 import { openUpdateNotice } from "./update-notice.js";
 import { initHostThemeSync } from "./theme-sync.js";
 import { loadFixes, loadSuggest, pullConfig, pushConfig, pushSuggest, DEFAULT_FIXES, newFixId } from "./fixes.js";
+import { loadCustomStyles, pullStyles, pushStyles, newStyleId, STYLE_LABEL_MAX } from "./styles.js";
 hana.ready();
 
 // 主题跟随宿主窗口：与其它页面共用同一套，不各自读 iframe URL 里的初值
@@ -189,4 +190,123 @@ void pullConfig().then((remote) => {
   suggestOn = remote.suggest;
   if (suggestBox) suggestBox.checked = suggestOn;
   renderFx();
+});
+
+// ---------------------------------------------------------------- 自定义场景
+// 与上面那块同构：一份清单 + 一个添加行 + 保存按钮。
+// 区别是每条多一栏「取向说明」——场景最后要落成系统提示里的一句话，
+// 只有名字的场景点下去等于没点，所以说明必填。
+
+let customStyles = loadCustomStyles();
+let stylesDirty = false;
+
+const stStatus = $("stStatus");
+function setStStatus(text, cls = "") {
+  if (!stStatus) return;
+  stStatus.textContent = text;
+  stStatus.className = "st-status" + (cls ? " " + cls : "");
+}
+
+function markStylesDirty() {
+  stylesDirty = true;
+  setStStatus("有未保存的修改", "warn");
+}
+
+function renderStyles() {
+  const list = $("stList");
+  if (!list) return;
+  list.replaceChildren();
+
+  if (!customStyles.length) {
+    const empty = document.createElement("p");
+    empty.className = "fx-empty";
+    empty.textContent = "还没有自定义场景，卡片顶上那排就还是内置的六个。";
+    list.appendChild(empty);
+  }
+
+  customStyles.forEach((item, index) => {
+    const row = document.createElement("div");
+    row.className = "fx-row st-row";
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "fx-del";
+    del.textContent = "×";
+    del.title = "从场景里移除";
+    del.addEventListener("click", () => {
+      customStyles = customStyles.filter((_, i) => i !== index);
+      markStylesDirty();
+      renderStyles();
+    });
+
+    const nameInput = makeInput(
+      item.label,
+      "fx-input fx-input-label",
+      "场景名",
+      "显示在胶囊上的名字",
+      (input) => () => {
+        const next = input.value.trim().slice(0, STYLE_LABEL_MAX) || item.label;
+        customStyles[index] = { ...customStyles[index], label: next };
+        input.value = next;
+        markStylesDirty();
+      },
+    );
+
+    const hintInput = makeInput(
+      item.hint,
+      "fx-input",
+      "这个场景往哪边写",
+      "给模型看的一句取向说明",
+      (input) => () => {
+        customStyles[index] = { ...customStyles[index], hint: input.value.trim() };
+        markStylesDirty();
+      },
+    );
+
+    const gap = document.createElement("span");
+    gap.className = "fx-add-gap";
+
+    row.append(del, nameInput, hintInput, gap);
+    list.appendChild(row);
+  });
+}
+
+$("stAdd")?.addEventListener("click", () => {
+  const label = $("stName").value.trim().slice(0, STYLE_LABEL_MAX);
+  const hint = $("stHint").value.trim();
+  if (!label) {
+    setStStatus("场景名不能空着", "err");
+    $("stName").focus();
+    return;
+  }
+  if (!hint) {
+    setStStatus("取向说明不能空着，不然模型不知道该往哪边写", "err");
+    $("stHint").focus();
+    return;
+  }
+  // 新加的一条插在最前（与提示词清单一致）
+  customStyles = [{ id: newStyleId(), label, hint }, ...customStyles];
+  $("stName").value = "";
+  $("stHint").value = "";
+  markStylesDirty();
+  renderStyles();
+});
+
+$("stSave")?.addEventListener("click", async () => {
+  setStStatus("保存中…");
+  const r = await pushStyles(customStyles);
+  stylesDirty = false;
+  setStStatus(
+    r.ok ? "已保存" : `没存到 App 那一侧（HTTP ${r.status || "网络异常"}），已留在本机`,
+    r.ok ? "ok" : "err",
+  );
+});
+
+renderStyles();
+
+// 场景的真身也在 App 那一侧：启动后拉一次对齐（本地有未保存改动时不覆盖）
+void pullStyles().then((list) => {
+  if (!list || stylesDirty) return;
+  customStyles = list;
+  renderStyles();
 });

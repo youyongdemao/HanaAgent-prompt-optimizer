@@ -46,6 +46,29 @@
     </section>
 
     <section class="st-block">
+      <h1 class="st-block-title">自定义场景</h1>
+      <section class="st-section">
+        <div class="fx-card">
+          <div class="fx-list" id="stList"></div>
+          <div class="fx-add">
+            <button class="fx-add-btn" id="stAdd" type="button" title="加入场景" aria-label="加入场景">
+              <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+                <path d="M6 1.7v8.6M1.7 6h8.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <input class="fx-input fx-input-label" id="stName" type="text" maxlength="6" placeholder="场景名">
+            <input class="fx-input" id="stHint" type="text" maxlength="120" placeholder="这个场景往哪边写（必填）">
+            <span class="fx-add-gap" aria-hidden="true"></span>
+          </div>
+          <div class="fx-foot">
+            <button class="st-btn st-btn-accent" id="stSave" type="button">保存修改</button>
+            <span class="st-status" id="stStatus"></span>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="st-block">
       <h1 class="st-block-title">关于</h1>
       <section class="st-section">
         <ul class="st-list">

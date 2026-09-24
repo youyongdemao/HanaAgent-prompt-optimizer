@@ -16,6 +16,7 @@ import {
   buildUserMessage,
   clampInt,
   normalizeStyle,
+  sanitizeCustomStyles,
   isRevisableAssistant,
   stripWrapping,
   DEFAULT_MAX_TOKENS,
@@ -38,12 +39,21 @@ function readVersion() {
   }
 }
 
+/** 用户自定义的优化场景存在应用存储里；读不到就当作没有（退回内置六个） */
+async function readCustomStyles(sdk) {
+  try {
+    return sanitizeCustomStyles(await sdk.storage.global.get("styles", []));
+  } catch {
+    return [];
+  }
+}
+
 /** 一次模型改写：v2 只开 sdk.models.utility，不接受 provider/key/endpoint。 */
-async function sampleOptimized(sdk, { text, style, extra, maxTokens, callToken }) {
+async function sampleOptimized(sdk, { text, style, extra, maxTokens, callToken, customStyles }) {
   const { text: optimized } = await sdk.models.utility({
     requestId: randomUUID(),
     ...(callToken ? { callToken } : { scope: "app" }),
-    systemPrompt: buildSystemPrompt(style, extra),
+    systemPrompt: buildSystemPrompt(style, extra, customStyles),
     messages: [{ role: "user", content: buildUserMessage(text) }],
     temperature: 0.4,
     maxTokens,
@@ -173,6 +183,37 @@ export default defineApp(async (sdk) => {
       }
     });
 
+    // 自定义优化场景（名字 + 一句取向说明）。和提示词清单同理：存在 App 这一侧，
+    // 卡片与设置页跑在各自的 iframe 里，只有走这里两边才看得到同一份。
+    app.get("/styles", async (c) => {
+      try {
+        const items = await sdk.storage.global.get("styles", null);
+        return c.json({
+          ok: true,
+          items: Array.isArray(items) ? sanitizeCustomStyles(items) : null,
+        });
+      } catch (err) {
+        return c.json({ ok: false, error: "READ_FAILED", message: String(err?.message || err) }, 500);
+      }
+    });
+
+    app.post("/styles", async (c) => {
+      let body = {};
+      try {
+        body = await c.req.json();
+      } catch {
+        body = {};
+      }
+      if (!Array.isArray(body?.items)) return c.json({ ok: false, error: "BAD_BODY" }, 400);
+      try {
+        const clean = sanitizeCustomStyles(body.items);
+        await sdk.storage.global.set("styles", clean);
+        return c.json({ ok: true, count: clean.length });
+      } catch (err) {
+        return c.json({ ok: false, error: "WRITE_FAILED", message: String(err?.message || err) }, 500);
+      }
+    });
+
     // 流式改写：结果边生成边推给卡片。模型用宿主当前焦点模型（流式必须显式指定
     // provider/model，不能像 utility 那样省）。事件按 NDJSON 一行一个往下发。
     app.post("/optimize-stream", async (c) => {
@@ -194,7 +235,8 @@ export default defineApp(async (sdk) => {
         );
       }
 
-      const style = normalizeStyle(body?.style);
+      const customStyles = await readCustomStyles(sdk);
+      const style = normalizeStyle(body?.style, customStyles);
       const extra = typeof body?.extra === "string" ? body.extra : "";
       const maxTokens = clampInt(body?.maxTokens, 256, 4096, DEFAULT_MAX_TOKENS);
 
@@ -219,7 +261,9 @@ export default defineApp(async (sdk) => {
       const prior = isRevisableAssistant(body?.priorAssistant) ? body.priorAssistant : null;
       const revising = Boolean(revise && prior);
 
-      const systemPrompt = revising ? buildReviseSystemPrompt(style, extra) : buildSystemPrompt(style, extra);
+      const systemPrompt = revising
+        ? buildReviseSystemPrompt(style, extra, customStyles)
+        : buildSystemPrompt(style, extra, customStyles);
       const messages = [{ role: "user", content: buildUserMessage(text) }];
       if (revising) {
         messages.push(prior);
@@ -318,8 +362,9 @@ export default defineApp(async (sdk) => {
         text: { type: "string", description: "要优化的基础提示词原文。" },
         style: {
           type: "string",
-          enum: ["general", "code", "writing", "image", "analysis", "agent"],
-          description: "优化侧重的场景，默认 general（通用）。",
+          description:
+            "优化侧重的场景：内置 general / code / writing / image / analysis / agent，" +
+            "或用户在设置页自定义的场景 id。认不出的一律走 general。",
         },
         extra: {
           type: "string",
@@ -335,19 +380,22 @@ export default defineApp(async (sdk) => {
         throw new Error(`提示词太长，上限 ${MAX_INPUT_CHARS} 字。`);
       }
 
+      const customStyles = await readCustomStyles(sdk);
+      const styleId = normalizeStyle(style, customStyles);
       const optimized = await sampleOptimized(sdk, {
         text: source,
-        style: normalizeStyle(style),
+        style: styleId,
         extra: typeof extra === "string" ? extra : "",
         maxTokens: DEFAULT_MAX_TOKENS,
         callToken: context?.callToken,
+        customStyles,
       });
       if (!optimized) throw new Error("模型没有返回内容，请重试。");
 
       return {
         content: [{ type: "text", text: optimized }],
         details: {
-          style: normalizeStyle(style),
+          style: styleId,
           originalLength: source.length,
           optimizedLength: optimized.length,
         },

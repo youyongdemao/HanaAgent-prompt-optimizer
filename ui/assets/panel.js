@@ -4,6 +4,7 @@
 import { hana } from "./sdk.js";
 import { apiUrl, appHeaders } from "./app-api.js";
 import { loadActiveFixes, loadSuggest, pullConfig, composeChips, SUGGEST_MIN_CHARS } from "./fixes.js";
+import { allStyles, loadCustomStyles, pullStyles } from "./styles.js";
 
 async function toast(message, type = "info") {
   try {
@@ -13,16 +14,8 @@ async function toast(message, type = "info") {
   }
 }
 
-// ---------------------------------------------------------------- 场景预设
-
-const STYLES = [
-  { id: "general", label: "通用" },
-  { id: "code", label: "编程" },
-  { id: "writing", label: "写作" },
-  { id: "image", label: "图像" },
-  { id: "analysis", label: "分析" },
-  { id: "agent", label: "Agent" },
-];
+// 优化场景：内置六个在 styles.js 里，用户自定义的接在后面，
+// 两边合并后渲染成顶上那排胶囊（顺序：内置 → 自定义）。
 
 // ---------------------------------------------------------------- 主题跟随
 // 颜色全部由宿主主题 CSS 派生（CSS 里一律走 color-mix）。
@@ -230,23 +223,13 @@ function render() {
 
   root.innerHTML = `
     <main class="po">
-      <div class="po-top">
-        <p class="po-hint">写粗糙版，优化成模型更懂的结构化提示词</p>
-      </div>
-
-      <div class="po-styles" role="group" aria-label="优化场景">
-        ${STYLES.map(
-          (s, i) =>
-            `<button type="button" class="po-chip${i === 0 ? " is-on" : ""}" data-style="${s.id}">${s.label}</button>`,
-        ).join("")}
-      </div>
-
       <label class="po-label" for="po-input">
         <span>基础提示词</span>
         <span class="po-label-right">
           <span id="po-count" class="po-count">0 字</span>
         </span>
       </label>
+      <div class="po-styles" id="po-styles" role="group" aria-label="优化场景"></div>
       <textarea id="po-input" class="po-input" spellcheck="false"
         placeholder="例如：帮我讲清楚 PID 里的积分项到底在干嘛"></textarea>
 
@@ -341,6 +324,32 @@ function render() {
   const reviseRight = document.getElementById("po-revise-right");
 
   let style = "general";
+  // 用户自定义的场景：本机缓存一份，真身在 App 那一侧（启动后拉一次对齐）
+  let customStyles = loadCustomStyles();
+  const stylesEl = document.getElementById("po-styles");
+  /** 顶上那排场景胶囊：内置在前，自定义接在后面 */
+  const renderStyleChips = () => {
+    const list = allStyles(customStyles);
+    // 选中的那个被删了就退回通用，别让 style 变成一个不存在的 id
+    if (!list.some((s) => s.id === style)) style = "general";
+    stylesEl.replaceChildren(
+      ...list.map((s) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "po-chip" + (s.id === style ? " is-on" : "");
+        btn.dataset.style = s.id;
+        btn.textContent = s.label;
+        // 自定义场景把取向说明挂到悬停提示上：点下去会发生什么，一眼看得到
+        if (s.hint) btn.title = s.hint;
+        btn.addEventListener("click", () => {
+          style = s.id;
+          for (const other of stylesEl.children) other.classList.toggle("is-on", other === btn);
+        });
+        return btn;
+      }),
+    );
+  };
+  renderStyleChips();
   let streaming = false;
   let abortCtrl = null;
   // 上一版结果的完整 assistant 消息（含模型的签名字段），迭代精修时原样带回
@@ -383,6 +392,13 @@ function render() {
         scheduleSuggestion();
       }
       recomposeChips();
+    });
+    // 场景那份也在设置页里改：拉一次，变了就重画那排胶囊
+    void pullStyles().then((list) => {
+      if (!list) return;
+      if (JSON.stringify(list) === JSON.stringify(customStyles)) return;
+      customStyles = list;
+      renderStyleChips();
     });
   };
   pullIntoPanes();
@@ -1049,15 +1065,6 @@ function render() {
 
     toast(ok ? `已复制${what}` : "复制失败，请手动选择复制", ok ? "success" : "error");
   };
-
-  for (const chip of root.querySelectorAll(".po-chip")) {
-    chip.addEventListener("click", () => {
-      style = chip.dataset.style || "general";
-      for (const other of root.querySelectorAll(".po-chip")) {
-        other.classList.toggle("is-on", other === chip);
-      }
-    });
-  }
 
   inputEl.addEventListener("input", syncCount);
   // 提示词一改，就重新问一次「这条适合往哪改」（推荐开关关着时这步什么都不做）

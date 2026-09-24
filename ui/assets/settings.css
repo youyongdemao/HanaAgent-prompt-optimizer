@@ -573,6 +573,12 @@ body {
   padding: 9px 16px;
 }
 
+/* ── 自定义场景那块：与提示词清单同构 ──
+   每条少一个开关，末列留等宽空位，两栏才与上面几行同列。 */
+.fx-row.st-row {
+  grid-template-columns: auto 132px minmax(0, 1fr) 34px;
+}
+
 /* ── 新增一行：清单下面、按钮上面 ──
    左边与 × 那一列对齐，右边缘与每行开关对齐；列宽跟 .fx-row 一致。 */
 .fx-add {
