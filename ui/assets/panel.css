@@ -1178,3 +1178,14 @@ body[data-color-mode="dark"] .po-error,
 .po-copy-split .po-split-btn + .po-split-btn {
   border-left: 1px solid color-mix(in srgb, var(--po-on-accent, #fff) 26%, transparent);
 }
+
+/* ── 链条节点：鼠标点过不该永久留高亮 ──
+   focus 环只在键盘导航（Tab）时出现；鼠标点击不留，免得看起来像选中。 */
+.po-chain-node:focus {
+  outline: none;
+}
+
+.po-chain-node:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  outline-offset: 1px;
+}

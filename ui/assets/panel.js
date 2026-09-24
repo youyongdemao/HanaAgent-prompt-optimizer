@@ -576,6 +576,8 @@ function render() {
     } else {
       renderFixLists();
     }
+    // 勾了改法也算「有了要求」，两个按钮的可用状态跟着变
+    syncRunButton();
   };
 
   /** 把「手写的要求」和「勾选的改法」拼成一条：顺序感就是先你说、后勾的 */
@@ -600,7 +602,12 @@ function render() {
     runBtn.disabled = false;
     runBtn.classList.toggle("is-stop", streaming);
     runTx.textContent = streaming ? "停止" : "优化";
-    reviseLeft.disabled = streaming;
+    // 写了要求或勾了改法 → 那是「改进」的活；「重写」只负责「不改要求再出一版」
+    const hasRequirement = reviseEl.value.trim().length > 0 || pickedFixes.size > 0;
+    reviseLeft.disabled = streaming || hasRequirement;
+    reviseLeft.title = hasRequirement
+      ? "写了要求请点「改进」；「重写」是不改要求再出一版"
+      : "基于左栏这一版重出一版（等于上面的「+」）";
     reviseRight.disabled = streaming;
     clearBtn.disabled = streaming;
   };
@@ -840,6 +847,8 @@ function render() {
   }
 
   inputEl.addEventListener("input", syncCount);
+  // 输入框里一有要求，「重写」就腾出位置给「改进」
+  reviseEl.addEventListener("input", syncRunButton);
   inputEl.addEventListener("keydown", (e) => {
     // 聊天框那套：Enter 直接优化，Shift + Enter 换行；
     // isComposing 是输入法选词那一回车，不能当成提交
