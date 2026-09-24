@@ -1189,3 +1189,10 @@ body[data-color-mode="dark"] .po-error,
   outline: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
   outline-offset: 1px;
 }
+/* ── chips：区分「这轮勾上的」与「当前这一版用过的」 ──
+   is-picked 是实线强调（准备用）；is-used 是虚线（这一版就是用它做的） */
+.po-chip-sm.is-used {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  color: var(--po-ink-soft);
+}

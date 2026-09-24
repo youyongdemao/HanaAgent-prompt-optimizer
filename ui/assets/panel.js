@@ -493,6 +493,8 @@ function render() {
     refLenEl.textContent = refText ? `${refText.length} 字` : "";
 
     renderChain();
+    // 切了版本，chips 上「本版用过」的标记要跟着变
+    renderFixLists();
     // 结构变了（结果区出现、版本增减）就把高度重算一次；
     // 生成期间结果框高度是 CSS 固定的，这里算出来不会变，所以不会被反复报出去
     fitHeight();
@@ -568,9 +570,12 @@ function render() {
   const makeFixChip = (fix) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "po-chip-sm" + (pickedFixes.has(fix.id) ? " is-picked" : "");
+    // is-picked = 这轮勾上的准备用；is-used = 当前显示的这一版当初就是用这个改法做的
+    const used = new Set((branches[activeBranch] && branches[activeBranch].labels) || []);
+    btn.className =
+      "po-chip-sm" + (pickedFixes.has(fix.id) ? " is-picked" : "") + (used.has(fix.label) ? " is-used" : "");
     btn.dataset.fixId = fix.id;
-    btn.title = fix.prompt;
+    btn.title = used.has(fix.label) ? `${fix.prompt}（当前这一版用过）` : fix.prompt;
     btn.textContent = fix.label;
     return btn;
   };
