@@ -254,11 +254,12 @@ function render() {
           <span class="po-versions" id="po-versions" hidden></span>
           <span id="po-leninfo" class="po-leninfo"></span>
         </div>
+        <p class="po-origin" id="po-origin"></p>
         <textarea id="po-result" class="po-result" spellcheck="false" readonly></textarea>
 
         <div class="po-source">
           <button id="po-source-toggle" class="po-source-toggle" type="button" aria-expanded="false">
-            <span class="po-caret" aria-hidden="true">▸</span><span>原文对照</span><span class="po-source-len" id="po-source-len"></span>
+            <span class="po-caret" aria-hidden="true">▸</span><span id="po-source-label">对照原文</span><span class="po-source-len" id="po-source-len"></span>
           </button>
           <pre id="po-source-text" class="po-source-text" hidden></pre>
         </div>
@@ -299,6 +300,8 @@ function render() {
   const sourceToggle = document.getElementById("po-source-toggle");
   const sourceTextEl = document.getElementById("po-source-text");
   const sourceLenEl = document.getElementById("po-source-len");
+  const sourceLabelEl = document.getElementById("po-source-label");
+  const originEl = document.getElementById("po-origin");
 
   let style = "general";
   let streaming = false;
@@ -373,6 +376,7 @@ function render() {
     if (!versions.length) {
       versionsEl.hidden = true;
       versionsEl.replaceChildren();
+      originEl.textContent = "";
       return;
     }
     versionsEl.replaceChildren();
@@ -398,7 +402,13 @@ function render() {
     versionsEl.hidden = false;
   };
 
-  /** 切到某一版：正文、长度、以及迭代精修要带回的 assistant 都跟着换 */
+  /** 溯源：这一版从原文出发，依次经过哪些改法 */
+  const renderOrigin = (item) => {
+    const chain = ["原文", ...((item && item.revisions) || [])];
+    originEl.textContent = chain.join(" → ");
+  };
+
+  /** 切到某一版：正文、长度、溯源、对照、迭代要带回的 assistant 都跟着换 */
   const showVersion = (index) => {
     const item = versions[index];
     if (!item) return;
@@ -406,15 +416,21 @@ function render() {
     resultEl.value = item.text;
     lastAssistant = item.assistant;
     lenInfoEl.textContent = `${sourceText.length} → ${item.text.length} 字`;
+    renderOrigin(item);
+    syncSource();
     renderVersions();
     growResult();
   };
 
-  /** 原文对照：默认收起，展开才占地方 */
+  /** 对照：有上一版就对照上一版，没有就对照原文 */
   const syncSource = () => {
-    sourceTextEl.textContent = sourceText;
-    sourceLenEl.textContent = sourceText ? `${sourceText.length} 字` : "";
-    if (!sourceText) {
+    const item = versions[activeVersion];
+    const previous = item && item.previous ? item.previous : "";
+    const ref = previous || sourceText;
+    sourceLabelEl.textContent = previous ? "对照上一版" : "对照原文";
+    sourceTextEl.textContent = ref;
+    sourceLenEl.textContent = ref ? `${ref.length} 字` : "";
+    if (!ref) {
       sourceTextEl.hidden = true;
       sourceToggle.setAttribute("aria-expanded", "false");
       sourceToggle.classList.remove("is-open");
@@ -495,7 +511,7 @@ function render() {
     return out;
   };
 
-  const runStream = async (revise = "", { append = false } = {}) => {
+  const runStream = async (revise = "", { append = false, labels = [] } = {}) => {
     if (streaming) return;
     const text = inputEl.value.trim();
     if (!text) {
@@ -508,6 +524,8 @@ function render() {
       setError("还没有可修改的结果，先优化一次。");
       return;
     }
+    // 这次用了哪几个改法，成功时要记进溯源链条
+    const pendingLabels = isRevise ? labels : [];
 
     setError("");
     streaming = true;
@@ -527,6 +545,7 @@ function render() {
     resultWrap.hidden = false;
     resultTitleEl.textContent = isRevise ? "修改中" : "生成中";
     lenInfoEl.textContent = "";
+    originEl.textContent = "";
     fitHeight();
 
     abortCtrl = new AbortController();
@@ -587,16 +606,26 @@ function render() {
                 ? event.optimized
                 : cleanStreaming(acc);
             if (isRevise) {
-              // 继续改是「改当前这一版」，不另开一版
-              versions[activeVersion] = { text: finalText, assistant: event.assistant || null };
+              // 继续改是「改当前这一版」：留一份改前的文本给「对照上一版」，
+              // 并把这次用到的改法累进溯源链条
+              const current = versions[activeVersion] || {};
+              versions[activeVersion] = {
+                text: finalText,
+                assistant: event.assistant || null,
+                previous: current.text || "",
+                revisions: [...(current.revisions || []), ...pendingLabels],
+              };
               lastAssistant = event.assistant || null;
             } else {
-              versions.push({ text: finalText, assistant: event.assistant || null });
+              // 直接源于原文（首版与「再来一版」都属此列）
+              versions.push({ text: finalText, assistant: event.assistant || null, previous: "", revisions: [] });
               activeVersion = versions.length - 1;
               lastAssistant = event.assistant || null;
             }
             resultEl.value = finalText;
             lenInfoEl.textContent = `${sourceText.length} → ${finalText.length} 字`;
+            renderOrigin(versions[activeVersion]);
+            syncSource();
             renderVersions();
             growResult();
           } else if (event.type === "error") {
@@ -673,6 +702,8 @@ function render() {
   });
 
   reviseBtn.addEventListener("click", () => {
+    // 勾了哪几个改法，进溯源链条；手写的要求不占链条位置
+    const labels = fixes.filter((item) => pickedFixes.has(item.id)).map((item) => item.label);
     const request = composeRevise();
     if (!request) {
       reviseEl.focus();
@@ -680,7 +711,7 @@ function render() {
     }
     // 先把这条回显到输入框，让用户看清这次到底要发什么
     reviseEl.value = request;
-    void runStream(request).finally(clearPicked);
+    void runStream(request, { labels }).finally(clearPicked);
   });
   reviseEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {

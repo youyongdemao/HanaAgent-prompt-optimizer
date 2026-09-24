@@ -368,6 +368,18 @@ body[data-color-mode="dark"] .po,
   display: none;
 }
 
+/* 溯源：这一版从哪儿来、依次经过哪些改法 */
+.po-origin {
+  margin: -2px 0 0;
+  font-size: 11px;
+  color: var(--po-ink-faint);
+  overflow-wrap: anywhere;
+}
+
+.po-origin:empty {
+  display: none;
+}
+
 .po-result-head {
   display: flex;
   align-items: center;
