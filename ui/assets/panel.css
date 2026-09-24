@@ -1291,6 +1291,7 @@ body[data-color-mode="dark"] .po-error,
     gap: 14px;
   }
 
+  .po-revise-tools .po-split,
   .po-revise-tools .po-actions {
     order: 1;
     align-self: flex-start;
@@ -1314,15 +1315,17 @@ body[data-color-mode="dark"] .po-error,
   border-color: color-mix(in srgb, var(--accent) 58%, transparent);
   color: color-mix(in srgb, var(--accent) 82%, var(--po-ink));
 }
-/* ── 「继续改」这一栏：两格按钮回到页面自己的主次按钮那套（同「优化 / 清空」）──
-   不再用「外框 + 三格」那个拼接件：两个独立玻璃胶囊、8px 间距，
-   改进（主操作、实心）在左，重写（次操作、描边）在右。
-   按钮自带 nowrap 与不收缩：窄卡片里宁可整组挤到下一行，也不把字掰成两行。 */
-.po-revise-tools .po-actions {
-  order: 2;
+/* ── 「复制」那对：照搬页面的主次按钮（同「优化 / 清空」）──
+   两个独立玻璃胶囊、8px 间距：复制最新项（主操作、实心）在左，
+   复制所选项（次操作、描边）在右。 */
+.po-result-actions .po-actions .po-btn {
+  flex: none;
+  white-space: nowrap;
 }
 
-.po-revise-tools .po-actions .po-btn {
+/* ── 三格按钮不拆行 ──
+   窄卡片里宁可整组挤到下一行，也不把「以所选项改进」掰成两行字。 */
+.po-split-btn {
   flex: none;
   white-space: nowrap;
 }
