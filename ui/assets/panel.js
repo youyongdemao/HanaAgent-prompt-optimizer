@@ -268,17 +268,14 @@ function render() {
           <button id="po-revise-run" class="po-btn" type="button"><span class="po-btn-tx">改</span></button>
         </div>
         <div class="po-revise-quick" id="po-revise-quick">
-          <button class="po-quick-link" type="button" data-revise="整体再短一些，砍掉不必要的解释">更短</button>
-          <span class="po-quick-dot" aria-hidden="true">·</span>
-          <button class="po-quick-link" type="button" data-revise="把要求写得更具体、更可判断，减少模糊的形容">更具体</button>
-          <span class="po-quick-dot" aria-hidden="true">·</span>
-          <button class="po-quick-link" type="button" data-revise="语气再平实一些，去掉官方套话和空泛的表述">更平实</button>
+          <button class="po-chip-sm" type="button" data-revise="整体再短一些，砍掉不必要的解释">更短</button>
+          <button class="po-chip-sm" type="button" data-revise="把要求写得更具体、更可判断，减少模糊的形容">更具体</button>
+          <button class="po-chip-sm" type="button" data-revise="语气再平实一些，去掉官方套话和空泛的表述">更平实</button>
         </div>
 
         <div class="po-result-actions">
           <button id="po-copy" class="po-btn primary" type="button"><span class="po-btn-tx">复制</span></button>
           <button id="po-back" class="po-btn" type="button"><span class="po-btn-tx">替换原文</span></button>
-          <button id="po-again" class="po-btn po-btn-ghost" type="button"><span class="po-btn-tx">再来一版</span></button>
         </div>
       </section>
 
@@ -302,7 +299,6 @@ function render() {
   const reviseQuick = document.getElementById("po-revise-quick");
   const resultTitleEl = document.getElementById("po-result-title");
   const versionsEl = document.getElementById("po-versions");
-  const againBtn = document.getElementById("po-again");
   const sourceToggle = document.getElementById("po-source-toggle");
   const sourceTextEl = document.getElementById("po-source-text");
   const sourceLenEl = document.getElementById("po-source-len");
@@ -362,9 +358,9 @@ function render() {
     });
   };
 
-  /** 版本切换条：只有一版时整条不出现 */
+  /** 版本条：第一版就显示（否则「能出多版」这件事没人知道），末尾挂一个「+」再来一版 */
   const renderVersions = () => {
-    if (versions.length <= 1) {
+    if (!versions.length) {
       versionsEl.hidden = true;
       versionsEl.replaceChildren();
       return;
@@ -379,6 +375,16 @@ function render() {
       btn.addEventListener("click", () => showVersion(index));
       versionsEl.appendChild(btn);
     });
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "po-version-add";
+    addBtn.textContent = "+";
+    addBtn.title = "再来一版";
+    addBtn.addEventListener("click", () => {
+      if (streaming) return;
+      void runStream("", { append: true });
+    });
+    versionsEl.appendChild(addBtn);
     versionsEl.hidden = false;
   };
 
@@ -671,11 +677,7 @@ function render() {
     toast("已放回输入框，可以改完再优化", "success");
   });
 
-  // 同一段原文再出一版，已有版本留着，1/2/3 可以来回切着比
-  againBtn.addEventListener("click", () => {
-    if (streaming) return;
-    void runStream("", { append: true });
-  });
+  // 同一段原文再出一版（从结果头那个「+」进来，已有版本留着）
 
   sourceToggle.addEventListener("click", toggleSource);
 

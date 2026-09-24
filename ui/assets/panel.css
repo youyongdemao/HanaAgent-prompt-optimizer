@@ -404,10 +404,37 @@ body[data-color-mode="dark"] .po,
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
+/* 版本条：只要出了结果就显示，所以 [hidden] 必须显式补回来（类选择器的 display 会顶掉它） */
+.po-versions[hidden] {
+  display: none;
+}
+
 .po-version-btn.is-on {
   color: color-mix(in srgb, var(--accent) 45%, var(--po-ink));
   border-color: color-mix(in srgb, var(--accent) 48%, transparent);
   background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* 「+」再来一版：虚线边框，与实线的版本号区分 */
+.po-version-add {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  appearance: none;
+  border: 1px dashed color-mix(in srgb, var(--text) 22%, transparent);
+  border-radius: 6px;
+  background: none;
+  color: var(--po-ink-faint);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color .16s, border-color .16s;
+}
+
+.po-version-add:hover {
+  color: color-mix(in srgb, var(--accent) 45%, var(--po-ink));
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .po-leninfo {
@@ -472,23 +499,6 @@ body[data-color-mode="dark"] .po,
   gap: 8px;
 }
 
-/* 轻按钮：同一行里不想抢主次时用它 */
-.po-btn-ghost {
-  background: transparent;
-  box-shadow: none;
-  color: var(--po-ink-faint);
-}
-
-.po-btn-ghost:hover {
-  color: var(--po-ink);
-  background: color-mix(in srgb, var(--text) 5%, transparent);
-  box-shadow: none;
-}
-
-.po-btn-ghost::before {
-  display: none;
-}
-
 /* ── 迭代精修：在上一版结果上继续改 ── */
 .po-revise {
   display: flex;
@@ -519,40 +529,39 @@ body[data-color-mode="dark"] .po,
   color: var(--po-ink-faint);
 }
 
-/* 三个快捷是一句话的缩写：长得像提示文字，不像一排按钮 */
+/* 三个快捷：紧凑胶囊，一眼看出能点 */
 .po-revise-quick {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 7px;
-  font-size: 11px;
-  color: var(--po-ink-faint);
+  gap: 6px;
 }
 
-.po-quick-link {
+.po-chip-sm {
+  flex: none;
   appearance: none;
-  border: 0;
-  background: none;
-  margin: 0;
-  padding: 0;
-  color: inherit;
+  border: 1px solid color-mix(in srgb, var(--text) 13%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 40%, transparent);
+  color: var(--po-ink-soft);
+  border-radius: 999px;
+  padding: 4px 11px;
   font: inherit;
   font-size: 11px;
-  line-height: 1.4;
+  line-height: 1.3;
+  white-space: nowrap;
   cursor: pointer;
-  transition: color .16s;
+  transition: transform .12s, background .16s, color .16s, box-shadow .16s;
 }
 
-.po-quick-link:hover {
-  color: color-mix(in srgb, var(--accent) 55%, var(--po-ink));
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
+.po-chip-sm:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--po-ink);
+  box-shadow: 0 3px 12px var(--po-glow);
 }
 
-.po-quick-dot {
-  opacity: .55;
-  user-select: none;
+.po-chip-sm:active {
+  transform: scale(.96);
 }
 
 @keyframes poLayerIn {
