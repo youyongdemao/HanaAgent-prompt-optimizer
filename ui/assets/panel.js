@@ -171,7 +171,9 @@ function updateGlow() {
   } catch {
     target = null;
   }
-  if (!target) {
+  // 禁用中的按钮不发发光：它点了也没反应，发光会误导
+  // （CSS 那层写了 :not(:disabled)，光晕是 JS 单独插的，得自己判）
+  if (!target || target.disabled) {
     fadeGlow();
     return;
   }
