@@ -478,6 +478,24 @@ function render() {
     fitHeight();
   };
 
+  /**
+   * 结果出来后把视线带到结果区：滚到它的顶部（这样结果在卡片里露得最多）。
+   * 用原生平滑滚动：自带缓进缓出，而且用户一滚动就自动被打断。
+   * 没有滚动条、或者已经在那附近时不出手。
+   */
+  const scrollToResult = () => {
+    try {
+      const doc = document.scrollingElement || document.documentElement;
+      if (!doc || doc.scrollHeight <= doc.clientHeight + 4) return;
+      const rect = resultWrap.getBoundingClientRect();
+      const target = Math.max(0, rect.top + doc.scrollTop - 8);
+      if (Math.abs(target - doc.scrollTop) < 8) return;
+      window.scrollTo({ top: target, behavior: "smooth" });
+    } catch {
+      /* 不支持平滑滚动就保持原地 */
+    }
+  };
+
   /** 左栏的编号：当前大版本下的第几次重写（1/2/3…），末尾挂一个「+」再单纯重写一次 */
   const renderVersionTabs = () => {
     versionTabs.replaceChildren();
@@ -720,6 +738,7 @@ function render() {
             lenInfoEl.textContent = `${sourceText.length} → ${finalText.length} 字`;
             renderPanes();
             growResult();
+            scrollToResult();
           } else if (event.type === "error") {
             throw new Error(event.message || "生成失败。");
           }
