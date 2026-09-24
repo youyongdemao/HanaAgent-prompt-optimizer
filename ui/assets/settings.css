@@ -518,3 +518,9 @@ body {
   border-top: 0;
   padding: 9px 16px;
 }
+/* ── 输入框只要边框，不要底色 ──
+   原来给了一层浅底，压在卡片底上发灰；聚焦时也只动描边，不再浮出一块底。 */
+.fx-input,
+.fx-input:focus {
+  background: none;
+}
