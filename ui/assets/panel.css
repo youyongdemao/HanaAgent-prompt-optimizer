@@ -1171,3 +1171,24 @@ body[data-color-mode="dark"] .po-error,
   border-color: transparent;
   box-shadow: none;
 }
+/* ── 复制组合：沿用同一套胶囊外壳，只把底色换成主色（亮色按字保持不动） ── */
+.po-copy-split .po-split-btn {
+  border-color: color-mix(in srgb, var(--accent) 88%, transparent);
+  background: linear-gradient(160deg, var(--accent), var(--accent-hover, var(--accent)));
+  color: var(--po-on-accent, #fff);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 26%, transparent), 0 2px 12px var(--po-glow);
+  padding: 7px 14px;
+  font-size: 11.5px;
+}
+
+.po-copy-split .po-split-btn:hover:not(:disabled) {
+  color: var(--po-on-accent, #fff);
+  border-color: color-mix(in srgb, var(--accent) 92%, transparent);
+  background: linear-gradient(160deg, var(--accent-hover, var(--accent)), var(--accent));
+  box-shadow: 0 4px 16px var(--po-glow), inset 0 1px 0 color-mix(in srgb, #fff 32%, transparent);
+}
+
+/* 中间那道缝在浅底上要看得见 */
+.po-copy-split .po-split-btn + .po-split-btn {
+  border-left: 1px solid color-mix(in srgb, var(--po-on-accent, #fff) 26%, transparent);
+}

@@ -287,7 +287,10 @@ function render() {
         <textarea id="po-revise" class="po-revise-input" rows="1" spellcheck="false"
           placeholder="不满意？说要改哪儿；上面的方向可以多选"></textarea>
         <div class="po-result-actions">
-          <button id="po-copy" class="po-btn primary" type="button"><span class="po-btn-tx">复制最新一版</span></button>
+          <div class="po-split po-copy-split">
+            <button id="po-copy" class="po-split-btn" type="button" title="复制左栏这个最新版本">复制最新版本</button>
+            <button id="po-copy-picked" class="po-split-btn" type="button" title="复制右栏正在看的那一版">复制所选版</button>
+          </div>
         </div>
       </section>
 
@@ -305,6 +308,7 @@ function render() {
   const resultEl = document.getElementById("po-result");
   const lenInfoEl = document.getElementById("po-leninfo");
   const copyBtn = document.getElementById("po-copy");
+  const copyPickedBtn = document.getElementById("po-copy-picked");
   const reviseEl = document.getElementById("po-revise");
   const reviseQuick = document.getElementById("po-revise-quick");
   const resultTitleEl = document.getElementById("po-result-title");
@@ -688,22 +692,46 @@ function render() {
     }
   };
 
-  const copyResult = async () => {
-    const text = resultEl.value;
+  /** 复制一段文本：三层兜底。前两层都可能落空（宿主没授权 / 浏览器要用户手势，
+      而 await 之后手势就过期了），所以最后一层用同步的 execCommand，不挑权限也不挑手势。 */
+  const copyText = async (text, what) => {
     if (!text) return;
     let ok = false;
+
     try {
       await hana.clipboard.writeText(text);
       ok = true;
     } catch {
+      /* 没授权或不支持，往下走 */
+    }
+
+    if (!ok) {
       try {
         await navigator.clipboard.writeText(text);
         ok = true;
       } catch {
+        /* 手势常见已失效 */
+      }
+    }
+
+    if (!ok) {
+      try {
+        const holder = document.createElement("textarea");
+        holder.value = text;
+        holder.setAttribute("readonly", "readonly");
+        holder.style.position = "fixed";
+        holder.style.top = "0";
+        holder.style.opacity = "0";
+        document.body.appendChild(holder);
+        holder.select();
+        ok = document.execCommand("copy");
+        holder.remove();
+      } catch {
         ok = false;
       }
     }
-    toast(ok ? "已复制优化后的提示词" : "复制失败，请手动选择复制", ok ? "success" : "error");
+
+    toast(ok ? `已复制${what}` : "复制失败，请手动选择复制", ok ? "success" : "error");
   };
 
   for (const chip of root.querySelectorAll(".po-chip")) {
@@ -798,7 +826,22 @@ function render() {
     inputEl.focus();
   });
 
-  copyBtn.addEventListener("click", copyResult);
+  // 左格：最新版本（不是左栏正在显示的那版，左栏可以翻到旧版）
+  copyBtn.addEventListener("click", () => {
+    const latest = latestVersion();
+    if (!latest) return;
+    void copyText(latest.text, "最新版本");
+  });
+
+  // 右格：右栏正在对照的那一版
+  copyPickedBtn.addEventListener("click", () => {
+    const item = inspecting === null ? null : versions[inspecting];
+    if (!item) {
+      toast("右栏停在原文，先点链条切到某一版", "warning");
+      return;
+    }
+    void copyText(item.text, item.label || "所选版");
+  });
 
   // 补充要求与继续改都是多行框，跟着内容长（一行起、六行封顶）
   for (const el of [extraEl, reviseEl]) {
