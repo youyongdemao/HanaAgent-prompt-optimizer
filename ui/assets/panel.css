@@ -1062,3 +1062,18 @@ body[data-color-mode="dark"] .po-error,
   color: var(--po-ink-faint);
   cursor: help;
 }
+/* 窄屏（结果区改成上下堆叠）时，「左改/右改」跟着说「改上面/改下面」
+   断点与 .po-compare 一致，两者同时翻转，不会出现上下堆着却写着左右的错位 */
+.po-tx-narrow {
+  display: none;
+}
+
+@media (max-width: 620px) {
+  .po-tx-wide {
+    display: none;
+  }
+
+  .po-tx-narrow {
+    display: inline;
+  }
+}
