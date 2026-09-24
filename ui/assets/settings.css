@@ -524,3 +524,8 @@ body {
 .fx-input:focus {
   background: none;
 }
+/* ── 清单里不再画行间分隔线 ── */
+.fx-row + .fx-row::before,
+.fx-foot::before {
+  display: none;
+}
