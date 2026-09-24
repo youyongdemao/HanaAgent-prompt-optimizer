@@ -130,6 +130,34 @@ export default defineApp(async (sdk) => {
       }
     });
 
+    // 清单存在 App 这一侧：卡片和设置页跑在各自的 iframe 里，浏览器存储不互通，
+    // 只有走 App 自己的存储，两边才看得到同一份。
+    app.get("/fixes", async (c) => {
+      try {
+        const items = await sdk.storage.global.get("fixes", null);
+        return c.json({ ok: true, items: Array.isArray(items) ? items : null });
+      } catch (err) {
+        return c.json({ ok: false, error: "READ_FAILED", message: String(err?.message || err) }, 500);
+      }
+    });
+
+    app.put("/fixes", async (c) => {
+      let body = {};
+      try {
+        body = await c.req.json();
+      } catch {
+        body = {};
+      }
+      const items = Array.isArray(body?.items) ? body.items : null;
+      if (!items) return c.json({ ok: false, error: "BAD_BODY" }, 400);
+      try {
+        await sdk.storage.global.set("fixes", items);
+        return c.json({ ok: true, count: items.length });
+      } catch (err) {
+        return c.json({ ok: false, error: "WRITE_FAILED", message: String(err?.message || err) }, 500);
+      }
+    });
+
     // 流式改写：结果边生成边推给卡片。模型用宿主当前焦点模型（流式必须显式指定
     // provider/model，不能像 utility 那样省）。事件按 NDJSON 一行一个往下发。
     app.post("/optimize-stream", async (c) => {

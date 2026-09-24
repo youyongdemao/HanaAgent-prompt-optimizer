@@ -1,6 +1,8 @@
 // assets/fixes.js — 「继续改」的方向：默认清单、候选池、本机读写
 // 卡片和设置页共用这一份，避免两边各自维护一份配置。
 
+import { apiUrl, appHeaders } from "./app-api.js";
+
 const STORAGE_KEY = "po-fixes-v1";
 
 /** 卡片上默认显示这六个 */
@@ -66,9 +68,40 @@ export function saveFixes(list) {
   }
 }
 
-/** 卡片只用在设置页勾上的那些 */
+/** 卡片只用在设置页开着的那些 */
 export function loadActiveFixes() {
   return loadFixes().filter((item) => item.on !== false);
+}
+
+/**
+ * 从 App 那一侧取清单（真正的权威来源）。拿不到就返回 null，
+ * 调用方留着本地缓存先跑，等下一次再对齐。
+ */
+export async function pullFixes() {
+  try {
+    const res = await fetch(apiUrl("/fixes"), { headers: appHeaders() });
+    if (!res.ok) return null;
+    const body = await res.json().catch(() => null);
+    return Array.isArray(body?.items) ? sanitize(body.items) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 把清单存到 App 那一侧（本地那份同时留作缓存） */
+export async function pushFixes(list) {
+  const clean = sanitize(list) ?? [];
+  saveFixes(clean);
+  try {
+    const res = await fetch(apiUrl("/fixes"), {
+      method: "PUT",
+      headers: appHeaders({ "content-type": "application/json" }),
+      body: JSON.stringify({ items: clean }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 /** 某个预设现在是否已经在清单里 */

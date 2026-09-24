@@ -5,7 +5,7 @@ import { hana } from "./sdk.js";
 import { apiFetch } from "./app-api.js";
 import { openUpdateNotice } from "./update-notice.js";
 import { initHostThemeSync } from "./theme-sync.js";
-import { loadFixes, saveFixes, DEFAULT_FIXES, PRESET_FIXES, hasFix, newFixId } from "./fixes.js";
+import { loadFixes, saveFixes, pullFixes, pushFixes, DEFAULT_FIXES, newFixId } from "./fixes.js";
 hana.ready();
 
 // 主题跟随宿主窗口：与其它页面共用同一套，不各自读 iframe URL 里的初值
@@ -154,12 +154,20 @@ $("fxReset")?.addEventListener("click", () => {
   renderFx();
 });
 
-$("fxSave")?.addEventListener("click", () => {
-  saveFixes(fixes);
+$("fxSave")?.addEventListener("click", async () => {
+  setFxStatus("保存中…");
+  const ok = await pushFixes(fixes);
   dirty = false;
-  setFxStatus("已保存", "ok");
+  setFxStatus(ok ? "已保存" : "没存到 App 那一侧，已留在本机", ok ? "ok" : "err");
 });
 
 renderFx();
 $("aboutUpdate")?.addEventListener("click", () => openUpdateNotice());
 load();
+
+// 清单的真身在 App 那一侧，本地那份只是缓存：启动后拉一次对齐
+void pullFixes().then((remote) => {
+  if (!remote) return;
+  fixes = remote;
+  renderFx();
+});
