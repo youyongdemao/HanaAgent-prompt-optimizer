@@ -263,14 +263,16 @@ function render() {
         </div>
 
         <div class="po-revise">
-          <input id="po-revise" class="po-revise-input" type="text" spellcheck="false"
-            placeholder="不满意？说要改哪儿，例如：再短一点、去掉第 3 条">
+          <div class="po-revise-field">
+            <input id="po-revise" class="po-revise-input" type="text" spellcheck="false"
+              placeholder="不满意？说要改哪儿，例如：再短一点、去掉第 3 条">
+            <div class="po-revise-quick" id="po-revise-quick">
+              <button class="po-chip-sm" type="button" data-revise="整体再短一些，砍掉不必要的解释">更短</button>
+              <button class="po-chip-sm" type="button" data-revise="把要求写得更具体、更可判断，减少模糊的形容">更具体</button>
+              <button class="po-chip-sm" type="button" data-revise="语气再平实一些，去掉官方套话和空泛的表述">更平实</button>
+            </div>
+          </div>
           <button id="po-revise-run" class="po-btn" type="button"><span class="po-btn-tx">改</span></button>
-        </div>
-        <div class="po-revise-quick" id="po-revise-quick">
-          <button class="po-chip-sm" type="button" data-revise="整体再短一些，砍掉不必要的解释">更短</button>
-          <button class="po-chip-sm" type="button" data-revise="把要求写得更具体、更可判断，减少模糊的形容">更具体</button>
-          <button class="po-chip-sm" type="button" data-revise="语气再平实一些，去掉官方套话和空泛的表述">更平实</button>
         </div>
 
         <div class="po-result-actions">
