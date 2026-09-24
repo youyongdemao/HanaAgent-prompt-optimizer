@@ -264,9 +264,8 @@ function render() {
           </div>
 
           <div class="po-pane">
-            <div class="po-chain" id="po-chain" role="tablist" aria-label="版本流程"></div>
             <div class="po-pane-head">
-              <span class="po-pane-tag" id="po-ref-tag">对照</span>
+              <div class="po-chain" id="po-chain"></div>
               <span class="po-pane-len" id="po-ref-len"></span>
             </div>
             <pre id="po-ref-text" class="po-ref-text"></pre>
@@ -276,12 +275,10 @@ function render() {
         <div class="po-revise">
           <input id="po-revise" class="po-revise-input" type="text" spellcheck="false"
             placeholder="不满意？说要改哪儿；也可以勾下面的方向，可多选">
+          <button id="po-base-toggle" class="po-base-toggle" type="button" title="基于哪一版继续改">
+            <span id="po-base-text">最新版</span>
+          </button>
           <button id="po-revise-run" class="po-btn" type="button"><span class="po-btn-tx">改</span></button>
-        </div>
-        <div class="po-revise-base" id="po-revise-base">
-          <span class="po-base-label">基于</span>
-          <button class="po-base-btn is-on" type="button" data-base="latest">最新版</button>
-          <button class="po-base-btn" type="button" data-base="ref">右侧这版</button>
         </div>
         <div class="po-revise-quick" id="po-revise-quick"></div>
 
@@ -313,10 +310,10 @@ function render() {
   const resultTitleEl = document.getElementById("po-result-title");
   const chainEl = document.getElementById("po-chain");
   const refTextEl = document.getElementById("po-ref-text");
-  const refTagEl = document.getElementById("po-ref-tag");
   const refLenEl = document.getElementById("po-ref-len");
   const latestLenEl = document.getElementById("po-latest-len");
-  const baseBar = document.getElementById("po-revise-base");
+  const baseToggle = document.getElementById("po-base-toggle");
+  const baseText = document.getElementById("po-base-text");
   const againBtn = document.getElementById("po-again");
 
   let style = "general";
@@ -336,17 +333,16 @@ function render() {
   // 卡片只负责用：清单从设置页配好的那份读（同一份本机配置）
   const fixes = loadFixes();
 
-  // 高度只上报一次。宿主每次重排都会把滚动位置打回顶部，而且内容一变就重排，
-  // 等于下面那些按钮永远点不顺。宁可让卡片自己滚（内容超出时内部滚动），
-  // 也不再去叫宿主。
-  let heightReported = false;
+  // 高度上报：只在真的变了（差 8px 以上）时发一次，且内容变短也要跟着缩，
+  // 否则卡片底下会空一大片。生成期间不走这里（那时高度一直变，反复叫醒宿主会把滚动打回顶部）。
+  let reportedHeight = 0;
   fitHeight = () => {
-    if (heightReported) return;
     const h = Math.ceil(
       Math.max(document.body.scrollHeight || 0, document.documentElement.scrollHeight || 0),
     );
     if (h <= 120) return;
-    heightReported = true;
+    if (Math.abs(h - reportedHeight) < 8) return;
+    reportedHeight = h;
     hana.ui.resize({ height: Math.min(h, 760) });
   };
 
@@ -363,8 +359,11 @@ function render() {
 
   const syncCount = () => {
     countEl.textContent = `${inputEl.value.length} 字`;
+    // 一行起、六行封顶，再多就在框里滚
     inputEl.style.height = "auto";
-    inputEl.style.height = `${Math.min(320, Math.max(96, inputEl.scrollHeight))}px`;
+    const line = parseFloat(getComputedStyle(inputEl).lineHeight) || 19;
+    const pad = 22;
+    inputEl.style.height = `${Math.min(line * 6 + pad, Math.max(line + pad, inputEl.scrollHeight))}px`;
     fitHeight();
   };
 
@@ -402,12 +401,19 @@ function render() {
   const renderChain = () => {
     chainEl.replaceChildren();
 
-    const makeNode = (label, index) => {
+    const nodeLabel = (index) => {
+      if (index === null) return "原文";
+      if (index === 0) return "初版";
+      if (index === versions.length - 1) return "最新一版";
+      return `第 ${index + 1} 版`;
+    };
+    const makeNode = (index) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "po-chain-node" + (inspecting === index ? " is-on" : "");
-      btn.textContent = label;
-      btn.title = index === null ? "最初写下的那段" : "查看这一版";
+      btn.textContent = nodeLabel(index);
+      // 这一版是怎么来的放悬停提示，不占标题位置
+      btn.title = index === null ? "最初写下的那段" : (versions[index] && versions[index].label) || nodeLabel(index);
       btn.addEventListener("click", () => inspectVersion(index));
       return btn;
     };
@@ -419,10 +425,10 @@ function render() {
       return span;
     };
 
-    chainEl.appendChild(makeNode("原文", null));
-    versions.forEach((item, index) => {
+    chainEl.appendChild(makeNode(null));
+    versions.forEach((_, index) => {
       chainEl.appendChild(makeArrow());
-      chainEl.appendChild(makeNode(item.label || `第 ${index + 1} 版`, index));
+      chainEl.appendChild(makeNode(index));
     });
   };
 
@@ -430,7 +436,11 @@ function render() {
   const renderPanes = () => {
     const latest = latestVersion();
     resultEl.value = latest ? latest.text : "";
-    // 换版后从头看，别停在上一版滚到底的位置
+    // 换版后从头看：先取消还在路上的「跟着滚到底」，再归位到顶部
+    if (growRaf) {
+      cancelAnimationFrame(growRaf);
+      growRaf = 0;
+    }
     resultEl.scrollTop = 0;
     latestLenEl.textContent = latest ? `${latest.text.length} 字` : "";
     lenInfoEl.textContent = latest ? `${sourceText.length} → ${latest.text.length} 字` : "";
@@ -438,31 +448,34 @@ function render() {
     const onSource = inspecting === null;
     const refItem = onSource ? null : versions[inspecting] || null;
     const refText = onSource ? sourceText : refItem ? refItem.text : "";
-    refTagEl.textContent = onSource ? "原文" : refItem && refItem.label ? refItem.label : "对照";
     refTextEl.textContent = refText;
     refLenEl.textContent = refText ? `${refText.length} 字` : "";
 
     renderChain();
+    // 结构变了（结果区出现、版本增减）就把高度重算一次；
+    // 生成期间结果框高度是 CSS 固定的，这里算出来不会变，所以不会被反复报出去
+    fitHeight();
   };
 
-  /** 基准按钮：右侧停在原文时没有可改的模型消息，就把「右侧这版」禁掉 */
-  const syncBaseBar = () => {
-    const refBtn = baseBar.querySelector('[data-base="ref"]');
-    if (refBtn) {
-      const usable = inspecting !== null && !!versions[inspecting];
-      refBtn.disabled = !usable;
-      if (!usable && reviseBase === "ref") reviseBase = "latest";
-    }
-    for (const btn of baseBar.querySelectorAll(".po-base-btn")) {
-      btn.classList.toggle("is-on", btn.dataset.base === reviseBase);
-    }
+  /** 基准开关：右侧停在原文时没有可改的模型消息，就把它禁掉 */
+  const syncBaseToggle = () => {
+    const usable = inspecting !== null && !!versions[inspecting];
+    if (!usable && reviseBase === "ref") reviseBase = "latest";
+    baseToggle.disabled = !usable;
+    baseText.textContent = reviseBase === "ref" ? "右侧这版" : "最新版";
+    baseToggle.classList.toggle("is-ref", reviseBase === "ref");
+    baseToggle.title = usable
+      ? reviseBase === "ref"
+        ? "基于右栏这一版继续改"
+        : "基于最新一版继续改"
+      : "只有一版时没得选";
   };
 
   /** 选一版来对照（null 表示原文） */
   const inspectVersion = (index) => {
     inspecting = index;
     renderPanes();
-    syncBaseBar();
+    syncBaseToggle();
     growResult();
   };
 
@@ -561,7 +574,7 @@ function render() {
       sourceText = text;
       resultEl.value = "";
       renderPanes();
-      syncBaseBar();
+      syncBaseToggle();
     }
     resultWrap.hidden = false;
     resultTitleEl.textContent = isRevise ? "修改中" : "生成中";
@@ -639,7 +652,7 @@ function render() {
             lastAssistant = event.assistant || null;
             lenInfoEl.textContent = `${sourceText.length} → ${finalText.length} 字`;
             renderPanes();
-            syncBaseBar();
+            syncBaseToggle();
             growResult();
           } else if (event.type === "error") {
             throw new Error(event.message || "生成失败。");
@@ -759,7 +772,7 @@ function render() {
     versions = [];
     inspecting = null;
     renderPanes();
-    syncBaseBar();
+    syncBaseToggle();
     setError("");
     syncCount();
     inputEl.focus();
@@ -780,19 +793,18 @@ function render() {
     versions = [];
     inspecting = null;
     renderPanes();
-    syncBaseBar();
+    syncBaseToggle();
     setError("");
     syncCount();
     inputEl.focus();
     toast("已放回输入框，可以改完再优化", "success");
   });
 
-  // 基准：基于最新一版，还是右侧正在看的那一版
-  baseBar.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-base]");
-    if (!btn || btn.disabled) return;
-    reviseBase = btn.dataset.base === "ref" ? "ref" : "latest";
-    syncBaseBar();
+  // 基准开关：点一下在「最新版」和「右侧这版」之间切（右栏停在原文时不可用）
+  baseToggle.addEventListener("click", () => {
+    if (baseToggle.disabled) return;
+    reviseBase = reviseBase === "ref" ? "latest" : "ref";
+    syncBaseToggle();
   });
 
   // 再来一版：同一段原文另出一版

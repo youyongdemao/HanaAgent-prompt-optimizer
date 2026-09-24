@@ -816,3 +816,56 @@ body[data-color-mode="dark"] .po-error,
   opacity: .45;
   cursor: default;
 }
+/* ── 统一高度规范：输入/输出框一行起、六行封顶，超出在框内滚 ── */
+.po-result,
+.po-ref-text {
+  height: calc(1.65em * 6 + 22px);
+  min-height: calc(1.65em + 22px);
+  max-height: calc(1.65em * 6 + 22px);
+  overflow-y: auto;
+}
+
+.po-input {
+  min-height: calc(1.65em + 22px);
+  max-height: calc(1.65em * 6 + 22px);
+  overflow-y: auto;
+}
+
+/* ── 基准开关（并进输入行，点一下在最新版/右侧这版之间切） ── */
+.po-base-toggle {
+  flex: none;
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--text) 13%, transparent);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--text) 3.5%, transparent);
+  color: var(--po-ink-soft);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1.3;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .16s, border-color .16s, background .16s;
+}
+
+.po-base-toggle:hover:not(:disabled) {
+  color: var(--po-ink);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.po-base-toggle.is-ref {
+  color: color-mix(in srgb, var(--accent) 45%, var(--po-ink));
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.po-base-toggle:disabled {
+  opacity: .45;
+  cursor: default;
+}
+
+/* 链条在右栏标题行里占满，字数靠右 */
+.po-pane-head .po-chain {
+  flex: 1;
+  min-width: 0;
+}
