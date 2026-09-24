@@ -929,3 +929,59 @@ body[data-color-mode="dark"] .po-error,
 .po-pane-head .po-pane-len {
   margin-left: auto;
 }
+/* ── 继续改的操作栏：左改|右改（一个整体，中间一道缝）+ 候选词，同一行，在输入框上方 ── */
+.po-revise-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.po-split {
+  display: inline-flex;
+  flex: none;
+  border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-card) 40%, transparent);
+  overflow: hidden;
+}
+
+.po-split-btn {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--po-ink-soft);
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: color .16s, background .16s;
+}
+
+/* 中间那道裂缝 */
+.po-split-btn + .po-split-btn {
+  border-left: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+}
+
+.po-split-btn:hover:not(:disabled) {
+  color: var(--po-ink);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.po-split-btn:disabled {
+  opacity: .45;
+  cursor: default;
+}
+
+/* 候选词在这条栏里收得更紧，好和左改|右改 待在同一行 */
+.po-revise-tools .po-revise-quick {
+  flex: 1;
+  min-width: 0;
+  gap: 5px;
+}
+
+.po-revise-tools .po-chip-sm {
+  padding: 3px 9px;
+  font-size: 10.5px;
+}

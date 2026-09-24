@@ -273,18 +273,15 @@ function render() {
           </div>
         </div>
 
-        <textarea id="po-revise" class="po-revise-input" rows="1" spellcheck="false"
-          placeholder="不满意？说要改哪儿；也可以勾下面的方向，可多选"></textarea>
-        <div class="po-revise-row">
-          <button id="po-revise-left" class="po-btn" type="button" title="基于左侧这一版继续改">
-            <span class="po-btn-tx">左改</span>
-          </button>
-          <button id="po-revise-right" class="po-btn" type="button" title="基于右侧这一版继续改">
-            <span class="po-btn-tx">右改</span>
-          </button>
+        <div class="po-revise-tools">
+          <div class="po-split">
+            <button id="po-revise-left" class="po-split-btn" type="button" title="基于左侧这一版继续改">左改</button>
+            <button id="po-revise-right" class="po-split-btn" type="button" title="基于右侧这一版继续改">右改</button>
+          </div>
+          <div class="po-revise-quick" id="po-revise-quick"></div>
         </div>
-        <div class="po-revise-quick" id="po-revise-quick"></div>
-
+        <textarea id="po-revise" class="po-revise-input" rows="1" spellcheck="false"
+          placeholder="不满意？说要改哪儿；上面的方向可以多选"></textarea>
         <div class="po-result-actions">
           <button id="po-copy" class="po-btn primary" type="button"><span class="po-btn-tx">复制最新一版</span></button>
           <button id="po-back" class="po-btn" type="button"><span class="po-btn-tx">替换原文</span></button>
