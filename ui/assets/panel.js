@@ -162,6 +162,17 @@ function fadeGlow() {
   glowPrev = null;
 }
 
+/**
+ * 按钮刚变成不可用时，把停在它上面的光晕立刻收掉。
+ * 光晕只在鼠标移动（onPointerMove）时更新，鼠标不动的话它会一直亮着，
+ * 直到用户动一下才淡出——那就是「亮一小会才灭」的来源。
+ */
+function dropStaleGlow() {
+  if (!glowPrev || !glowPrev.spot) return;
+  const owner = glowPrev.spot.parentElement;
+  if (owner && owner.disabled) fadeGlow();
+}
+
 function updateGlow() {
   glowRaf = null;
   let target = null;
@@ -614,6 +625,8 @@ function render() {
       : "基于左栏这一版重出一版（等于上面的「+」）";
     reviseRight.disabled = streaming;
     clearBtn.disabled = streaming;
+    // 刚被禁用的按钮上如果正停着光晕，立刻收掉，不用等鼠标动
+    dropStaleGlow();
   };
 
   /**
