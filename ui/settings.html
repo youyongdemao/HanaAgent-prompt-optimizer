@@ -16,14 +16,6 @@
       <h1 class="st-block-title">快捷候选提示词设置</h1>
 
       <section class="st-section">
-        <div class="fx-add">
-          <input class="fx-input fx-input-label" id="fxLabel" type="text" maxlength="12" placeholder="请输入提示词">
-          <input class="fx-input" id="fxPrompt" type="text" placeholder="解释补充（可空）">
-          <button class="st-btn st-btn-sm" id="fxAdd" type="button">添加</button>
-        </div>
-      </section>
-
-      <section class="st-section">
         <div class="fx-card">
           <div class="fx-mode">
             <div class="fx-mode-title">根据内容主题推荐</div>
@@ -32,7 +24,13 @@
               <span class="fx-switch-track"></span>
             </label>
           </div>
+          <div class="fx-sub-title">候选项清单</div>
           <div class="fx-list" id="fxList"></div>
+          <div class="fx-add">
+            <input class="fx-input fx-input-label" id="fxLabel" type="text" maxlength="12" placeholder="请输入提示词">
+            <input class="fx-input" id="fxPrompt" type="text" placeholder="解释补充（可空）">
+            <button class="st-btn st-btn-sm" id="fxAdd" type="button">添加</button>
+          </div>
           <div class="fx-foot">
             <button class="st-btn" id="fxReset" type="button">恢复默认</button>
             <button class="st-btn st-btn-accent" id="fxSave" type="button">保存修改</button>

@@ -546,3 +546,32 @@ body {
 .fx-foot::before {
   display: none;
 }
+/* ── 清单小标题：与「根据内容主题推荐」同一级的子项标题 ──
+   「推荐」与「清单」是两个不同的子项，中间画一条分割线；
+   标题左右内边距与字号都走 .fx-mode / .fx-mode-title 同一套值。 */
+.fx-sub-title {
+  position: relative;
+  padding: 11px 16px 3px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.fx-sub-title::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+}
+
+/* ── 新增一行：清单下面、按钮上面 ──
+   左边与 × 那一列对齐，右边缘与每行开关对齐；列宽跟 .fx-row 一致。 */
+.fx-add {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+}
