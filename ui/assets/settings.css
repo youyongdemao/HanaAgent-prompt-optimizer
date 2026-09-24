@@ -315,35 +315,6 @@ body {
   border-color: color-mix(in srgb, var(--danger, #ef4444) 40%, transparent);
 }
 
-.fx-presets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.fx-preset {
-  appearance: none;
-  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
-  border-radius: 999px;
-  background: none;
-  color: var(--text);
-  padding: 4px 11px;
-  font: inherit;
-  font-size: 11.5px;
-  cursor: pointer;
-  transition: color .16s, border-color .16s;
-}
-
-.fx-preset:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-  color: var(--accent);
-}
-
-.fx-preset.is-in {
-  opacity: .45;
-  cursor: default;
-}
-
 .fx-add {
   display: flex;
   gap: 6px;
