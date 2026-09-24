@@ -611,6 +611,8 @@ function render() {
     }
     renderPanes();
     growResult();
+    // 换了选中项，「以所选项改进」的可否跟着变
+    syncRunButton();
   };
 
   // ---- 改法：清单在设置页里配，卡片只负责勾选 ----
@@ -725,10 +727,12 @@ function render() {
     reviseLeft.title = hasRequirement
       ? "写了要求请点「改进」；「重写」是不改要求再出一版"
       : "基于左栏这一版重出一版（等于上面的「+」）";
-    revisePickedBtn.disabled = streaming || !hasRequirement;
-    revisePickedBtn.title = hasRequirement
-      ? "从流程图上选中的那一项开始改进，它后面的版本会被取代"
-      : "先勾改进方向或写一句要求，再以所选项改进";
+    revisePickedBtn.disabled = streaming || !hasRequirement || !inspecting;
+    revisePickedBtn.title = !inspecting
+      ? "先在流程图上点一节（「原文」不算），再以所选项改进"
+      : hasRequirement
+        ? "从流程图上选中的那一项开始改进，它后面的版本会被取代"
+        : "先勾改进方向或写一句要求，再以所选项改进";
     reviseRight.disabled = streaming || !hasRequirement;
     reviseRight.title = hasRequirement
       ? "从流程图的最后一版开始改进，接在末尾"
@@ -1041,7 +1045,12 @@ function render() {
   const runRevise = (from) => {
     const labels = fixes.filter((item) => pickedFixes.has(item.id)).map((item) => item.label);
     const request = composeRevise();
-    const usePicked = from === "picked" && !!inspecting;
+    // 以所选项改进要求真的选中了某一节（停在「原文」不算），否则会退成以最新版改
+    if (from === "picked" && !inspecting) {
+      setError("先在流程图上点一节（「原文」不算），再以所选项改进。");
+      return;
+    }
+    const usePicked = from === "picked";
     // 选中的那项不在时退回最后一版，不打断操作
     const base = usePicked
       ? inspectedItem() || latestItemOf(latestBranch())
