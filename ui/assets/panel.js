@@ -296,7 +296,7 @@ function render() {
 
         <div class="po-revise-tools">
           <div class="po-split">
-            <button id="po-revise-picked" class="po-split-btn" type="button" title="以流程图上选中的那一节为底稿，重出一版">按所选项更新</button>
+            <button id="po-revise-picked" class="po-split-btn" type="button" title="从流程图上选中的那一项开始改进（带要求），它后面的版本会被新结果取代">以所选项改进</button>
             <button id="po-revise-left" class="po-split-btn" type="button" title="基于左栏这一版重出一版（不写要求时就等于「+」）">重写</button>
             <button id="po-revise-right" class="po-split-btn" type="button" title="基于右栏那一版，按新要求改进">改进</button>
           </div>
@@ -1018,22 +1018,25 @@ function render() {
   };
 
   /**
-   * 「改左面」基于左栏那一次，「改右面」基于右栏那一次。
-   * 写了要求或勾了改法 → 那是新要求 → 记成新大版本；
-   * 什么都没写 → 和那个「+」一样，只是重写一次，算小版本。
+   * 三格的分工，差别只在「底稿从哪来」：
+   *   picked  从流程图上选中的那一项开始改进（带要求），它后面的版本会被新结果取代
+   *   latest  从流程图的最后一版开始改进（带要求），接在末尾
+   *   left    左栏当前那版（不带要求时等同那个「+」，算小版本）
    */
-  const runRevise = (side) => {
+  const runRevise = (from) => {
     const labels = fixes.filter((item) => pickedFixes.has(item.id)).map((item) => item.label);
     const request = composeRevise();
-    // 右栏停在原文时（没有可改的底稿）退回左栏那一版，不打断操作
-    const base =
-      side === "right"
-        ? inspectedItem() || currentItem() || latestItemOf(latestBranch())
+    const usePicked = from === "picked" && !!inspecting;
+    // 选中的那项不在时退回最后一版，不打断操作
+    const base = usePicked
+      ? inspectedItem() || latestItemOf(latestBranch())
+      : from === "latest"
+        ? latestItemOf(latestBranch())
         : currentItem() || latestItemOf(latestBranch());
     if (!base || !base.assistant) {
       setError(
-        side === "right"
-          ? "右面这一版没有可继续改的底稿，先点链条切到某一节。"
+        from === "picked"
+          ? "先去流程图上点一节，再以所选项改进。"
           : "还没有可修改的结果，先优化一次。",
       );
       return;
@@ -1048,7 +1051,8 @@ function render() {
     lastAssistant = base.assistant;
     // 新版本占住哪一节：从「被点的那节」往后一位。这样从中间改会取代后面的版本，
     // 而不是接在链条尾巴上。
-    const at = ((side === "right" && inspecting ? inspecting.branch : activeBranch) ?? -1) + 1;
+    // 从所选项改进 → 占住它后面那一节（后面的被取代）；改进 / 重写 → 接在末尾
+    const at = (usePicked ? inspecting.branch : branches.length - 1) + 1;
     // 先把这条回显到输入框，让用户看清这次到底要发什么
     reviseEl.value = request;
     autoGrow(reviseEl);
@@ -1060,19 +1064,10 @@ function render() {
     runRewriteOf(branches[activeBranch]);
   };
 
-  /** 「按所选项更新」：以流程图上选中那一节的底稿重出一版（和「重写」同款，只换基准） */
-  const runUpdateFromPicked = () => {
-    const branch = branches[inspecting ? inspecting.branch : activeBranch];
-    if (!branch) {
-      setError("先在流程图上点一节，再按所选项更新。");
-      return;
-    }
-    runRewriteOf(branch);
-  };
-
-  revisePickedBtn.addEventListener("click", runUpdateFromPicked);
+  // 三格：以所选项改进（带要求，取代它后面）｜重写（不带要求）｜改进（带要求，接在最后一版之后）
+  revisePickedBtn.addEventListener("click", () => runRevise("picked"));
   reviseLeft.addEventListener("click", () => runRevise("left"));
-  reviseRight.addEventListener("click", () => runRevise("right"));
+  reviseRight.addEventListener("click", () => runRevise("latest"));
   // 与基础提示词一致：Enter 执行，Shift + Enter 换行
   reviseEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {

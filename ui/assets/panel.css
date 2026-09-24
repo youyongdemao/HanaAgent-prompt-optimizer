@@ -1279,3 +1279,23 @@ body[data-color-mode="dark"] .po-error,
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* ── 窄屏（结果区改成上下堆叠）：三格按钮在上，改法选项在下，最多两行 ──
+   宽屏仍按原样并排，不动。 */
+@media (max-width: 620px) {
+  .po-revise-tools {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .po-revise-tools .po-split {
+    order: 1;
+    align-self: flex-start;
+  }
+
+  .po-revise-tools .po-revise-quick {
+    order: 2;
+    max-height: 60px;
+    overflow: hidden;
+  }
+}
