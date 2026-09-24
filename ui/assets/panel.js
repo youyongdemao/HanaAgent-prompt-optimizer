@@ -866,6 +866,21 @@ function render() {
   inputEl.addEventListener("input", syncCount);
   // 输入框里一有要求，「重写」就腾出位置给「改进」
   reviseEl.addEventListener("input", syncRunButton);
+
+  // 光标在内容框里时，滚轮只滚框内；滚到头也不把滚动传给整张卡片
+  //（滚轮默认会「滚动链」到祖先容器，这里在到边时截住）
+  // 框内容没超出时，顶与底是同一个位置，两个方向都算到边，于是它一律不外传
+  for (const el of [inputEl, extraEl, reviseEl, resultEl, refTextEl]) {
+    el.addEventListener(
+      "wheel",
+      (e) => {
+        const atTop = el.scrollTop <= 0;
+        const atBottom = Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight;
+        if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atBottom)) e.preventDefault();
+      },
+      { passive: false },
+    );
+  }
   inputEl.addEventListener("keydown", (e) => {
     // 聊天框那套：Enter 直接优化，Shift + Enter 换行；
     // isComposing 是输入法选词那一回车，不能当成提交
