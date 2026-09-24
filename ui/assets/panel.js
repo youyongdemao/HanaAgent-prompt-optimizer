@@ -368,7 +368,7 @@ function render() {
       if (!remote) return;
       const active = remote.filter((item) => item.on !== false);
       if (fixSig(active) === fixSig(fixes)) return; // 没变就别动，免得把已经勾好的清掉
-      applyFixes(active.length ? active : remote);
+      applyFixes(active.length ? active : remote, true);
     });
   };
   pullIntoPanes();
@@ -705,10 +705,11 @@ function render() {
 
   /** 生成中主按钮变成「停止」，其余输入先按住 */
   /** 换成一份新清单（模型建议的，或退回默认的），并刷新 chips */
-  const applyFixes = (list) => {
+  const applyFixes = (list, keepPicked = false) => {
     if (!Array.isArray(list) || !list.length) return;
     fixes = list;
-    pickedFixes.clear();
+    // 自动对齐时不动勾选：用户可能正挑到一半
+    if (!keepPicked) pickedFixes.clear();
     renderFixLists();
     syncReviseHint();
     syncRunButton();
