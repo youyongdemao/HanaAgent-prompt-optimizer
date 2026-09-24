@@ -1189,3 +1189,77 @@ body[data-color-mode="dark"] .po-error,
   outline: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
   outline-offset: 1px;
 }
+
+/* ── 横向滚动壳（链条与小版本号共用） ──
+   放不下不换行，改成左右可滚；不出滚动条；哪边还有内容没露出来，
+   哪边就给箭头和边缘渐隐。 */
+.po-scroller {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.po-scroll-track {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.po-scroll-track::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.po-scroller.can-left .po-scroll-track {
+  mask-image: linear-gradient(to right, transparent 0, #000 22px);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 22px);
+}
+
+.po-scroller.can-right .po-scroll-track {
+  mask-image: linear-gradient(to left, transparent 0, #000 22px);
+  -webkit-mask-image: linear-gradient(to left, transparent 0, #000 22px);
+}
+
+.po-scroller.can-left.can-right .po-scroll-track {
+  mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+}
+
+.po-scroll-btn {
+  appearance: none;
+  border: none;
+  background: none;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: var(--po-ink-faint);
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 999px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s, background-color .15s, color .15s;
+}
+
+.po-scroller.can-left .po-scroll-btn.po-scroll-left,
+.po-scroller.can-right .po-scroll-btn.po-scroll-right {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.po-scroll-btn:hover {
+  color: var(--po-ink-soft);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}

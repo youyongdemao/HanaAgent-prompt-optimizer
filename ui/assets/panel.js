@@ -271,7 +271,11 @@ function render() {
           <div class="po-pane">
             <div class="po-pane-head">
               <span class="po-pane-tag" id="po-latest-tag">最新一版</span>
-              <span class="po-version-tabs" id="po-version-tabs"></span>
+              <span class="po-scroller" id="po-vtabs-scroller">
+                <button class="po-scroll-btn po-scroll-left" type="button" aria-label="向前" tabindex="-1">‹</button>
+                <span class="po-version-tabs po-scroll-track" id="po-version-tabs"></span>
+                <button class="po-scroll-btn po-scroll-right" type="button" aria-label="向后" tabindex="-1">›</button>
+              </span>
               <span class="po-pane-len" id="po-latest-len"></span>
             </div>
             <textarea id="po-result" class="po-result" spellcheck="false" readonly></textarea>
@@ -279,7 +283,11 @@ function render() {
 
           <div class="po-pane">
             <div class="po-pane-head">
-              <div class="po-chain" id="po-chain"></div>
+              <div class="po-scroller" id="po-chain-scroller">
+                <button class="po-scroll-btn po-scroll-left" type="button" aria-label="向前" tabindex="-1">‹</button>
+                <div class="po-chain po-scroll-track" id="po-chain"></div>
+                <button class="po-scroll-btn po-scroll-right" type="button" aria-label="向后" tabindex="-1">›</button>
+              </div>
               <span class="po-pane-len" id="po-ref-len"></span>
             </div>
             <pre id="po-ref-text" class="po-ref-text"></pre>
@@ -428,6 +436,36 @@ function render() {
     return branch.items[inspecting.item] || latestItemOf(branch);
   };
 
+  /**
+   * 横向滚动壳：放不下不换行，改成左右可滚；不出滚动条，
+   * 哪边还有内容没露出来，哪边就给箭头和边缘渐隐。
+   * 返回一个 sync，内容变了调一次让它重新量。
+   */
+  const setupScroller = (scroller) => {
+    const track = scroller && scroller.querySelector(".po-scroll-track");
+    if (!track) return () => {};
+    const sync = () => {
+      const max = track.scrollWidth - track.clientWidth;
+      const over = max > 2;
+      scroller.classList.toggle("is-overflow", over);
+      scroller.classList.toggle("can-left", over && track.scrollLeft > 2);
+      scroller.classList.toggle("can-right", over && track.scrollLeft < max - 2);
+    };
+    const step = () => Math.max(80, track.clientWidth * 0.6);
+    scroller.querySelector(".po-scroll-left")?.addEventListener("click", () => {
+      track.scrollBy({ left: -step(), behavior: "smooth" });
+    });
+    scroller.querySelector(".po-scroll-right")?.addEventListener("click", () => {
+      track.scrollBy({ left: step(), behavior: "smooth" });
+    });
+    track.addEventListener("scroll", sync, { passive: true });
+    if (window.ResizeObserver) new ResizeObserver(sync).observe(track);
+    return sync;
+  };
+
+  const syncChainScroll = setupScroller(document.getElementById("po-chain-scroller"));
+  const syncVtabScroll = setupScroller(document.getElementById("po-vtabs-scroller"));
+
   /** 流程链条：原文 → 每个大版本（节点标题就是那次的要求），点哪节就显示那节最新的一次重写 */
   const renderChain = () => {
     chainEl.replaceChildren();
@@ -495,6 +533,11 @@ function render() {
     renderChain();
     // 切了版本，chips 上「本版用过」的标记要跟着变
     renderFixLists();
+    // 链条与小版本号是横向可滚的，内容变了要重新量一次
+    requestAnimationFrame(() => {
+      syncChainScroll();
+      syncVtabScroll();
+    });
     // 结构变了（结果区出现、版本增减）就把高度重算一次；
     // 生成期间结果框高度是 CSS 固定的，这里算出来不会变，所以不会被反复报出去
     fitHeight();
