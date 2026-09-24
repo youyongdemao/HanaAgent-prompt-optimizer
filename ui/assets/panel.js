@@ -468,6 +468,25 @@ function render() {
   const syncChainScroll = setupScroller(document.getElementById("po-chain-scroller"));
   const syncVtabScroll = setupScroller(document.getElementById("po-vtabs-scroller"));
 
+  /**
+   * 把当前选中的那一节滚回可视区（只动横向滚动壳，不牽动整页）。
+   * 选中的那节跑到视野外时，链条就失去作用了。
+   */
+  const revealActiveNode = () => {
+    const node = chainEl.querySelector(".po-chain-node.is-on");
+    if (!node) return;
+    const tr = chainEl.getBoundingClientRect();
+    const nr = node.getBoundingClientRect();
+    const pad = 14;
+    let delta = 0;
+    if (nr.left < tr.left + pad) delta = nr.left - (tr.left + pad);
+    else if (nr.right > tr.right - pad) delta = nr.right - (tr.right - pad);
+    if (!delta) return;
+    chainEl.scrollBy({ left: delta, behavior: "smooth" });
+    // 平滑滚动要过一会儿才落定，那时再量一次箭头与渐隐
+    setTimeout(syncChainScroll, 280);
+  };
+
   /** 流程链条：原文 → 每个大版本（节点标题就是那次的要求），点哪节就显示那节最新的一次重写 */
   const renderChain = () => {
     chainEl.replaceChildren();
@@ -535,10 +554,11 @@ function render() {
     renderChain();
     // 切了版本，chips 上「本版用过」的标记要跟着变
     renderFixLists();
-    // 链条与小版本号是横向可滚的，内容变了要重新量一次
+    // 链条与小版本号是横向可滚的，内容变了要重新量一次；选中项也可能滚出了视野
     requestAnimationFrame(() => {
       syncChainScroll();
       syncVtabScroll();
+      revealActiveNode();
     });
     // 结构变了（结果区出现、版本增减）就把高度重算一次；
     // 生成期间结果框高度是 CSS 固定的，这里算出来不会变，所以不会被反复报出去
