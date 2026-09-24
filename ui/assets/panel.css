@@ -564,6 +564,87 @@ body[data-color-mode="dark"] .po,
   transform: scale(.96);
 }
 
+/* 勾选态：底色与描边同时加深，不用对钩也一眼能看出选上了 */
+.po-chip-sm.is-picked {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+  color: color-mix(in srgb, var(--accent) 40%, var(--po-ink));
+}
+
+/* 「更多…」用虚线：它是个入口，不是改法本身 */
+.po-chip-more {
+  border-style: dashed;
+  color: var(--po-ink-faint);
+}
+
+.po-chip-more.is-open {
+  border-style: solid;
+  color: var(--po-ink-soft);
+}
+
+.po-more {
+  display: grid;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--text) 2.5%, transparent);
+}
+
+.po-more[hidden] {
+  display: none;
+}
+
+.po-more-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.po-more-add {
+  display: flex;
+  gap: 6px;
+}
+
+.po-custom-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: 999px;
+  background: none;
+  color: var(--po-ink);
+  padding: 4px 11px;
+  font: inherit;
+  font-size: 11px;
+}
+
+.po-custom-input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.po-custom-input::placeholder {
+  color: var(--po-ink-faint);
+}
+
+/* 自定义项上的删除：平时藏着，悬停才出现，免得一排叉 */
+.po-fix-del {
+  display: none;
+  margin-left: 4px;
+  font-size: 11px;
+  line-height: 1;
+  opacity: .6;
+}
+
+.po-chip-sm:hover .po-fix-del {
+  display: inline;
+}
+
+.po-fix-del:hover {
+  opacity: 1;
+  color: color-mix(in srgb, var(--danger, #ef4444) 70%, var(--po-ink));
+}
+
 @keyframes poLayerIn {
   from {
     opacity: .35;

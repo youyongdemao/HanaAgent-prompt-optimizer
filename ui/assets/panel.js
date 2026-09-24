@@ -23,6 +23,47 @@ const STYLES = [
   { id: "agent", label: "Agent" },
 ];
 
+// ---------------------------------------------------------------- 改法（继续改的方向）
+// pinned 的六个常驻一排，其余收在「更多」里；用户自己加的存 localStorage。
+const QUICK_FIXES = [
+  { id: "shorter", label: "更短", prompt: "整体再短一些，砍掉不必要的解释", pinned: true },
+  { id: "specific", label: "更具体", prompt: "把要求写得更具体、更可判断，减少模糊的形容", pinned: true },
+  { id: "plainer", label: "更平实", prompt: "语气再平实一些，去掉官方套话和空泛的表述", pinned: true },
+  { id: "example", label: "举例", prompt: "补一个具体的输入与输出示例，把期望的样子钉住", pinned: true },
+  { id: "boundary", label: "加约束", prompt: "明确边界与禁止项：什么不要做、遇到说不清的情况怎么办", pinned: true },
+  { id: "steps", label: "分步骤", prompt: "把任务拆成有序步骤，每一步写清产出什么", pinned: true },
+  { id: "context", label: "补背景", prompt: "补充任务背景与使用场景，让模型知道这个提示词用在哪儿" },
+  { id: "beginner", label: "面向新手", prompt: "改成面向完全不了解这个领域的人，专业术语都要顺带解释" },
+  { id: "expert", label: "面向专家", prompt: "改成面向有专业背景的人，省略基础解释，直接讲关键" },
+  { id: "output", label: "明确输出", prompt: "明确输出的格式、长度与结构" },
+  { id: "role", label: "强化角色", prompt: "给模型一个更明确、更贴合任务的角色设定" },
+  { id: "antipattern", label: "加反例", prompt: "说明什么样的回答是不合格的、需要避免的" },
+  { id: "english", label: "转成英文", prompt: "把提示词改成英文，结构与要求保持不变" },
+];
+
+const CUSTOM_FIXES_KEY = "po-custom-fixes";
+
+/** 自定义改法只存在本机：读失败当没有，不打断卡片 */
+function loadCustomFixes() {
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_FIXES_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list)
+      ? list.filter((item) => item && typeof item.id === "string" && typeof item.prompt === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomFixes(list) {
+  try {
+    window.localStorage.setItem(CUSTOM_FIXES_KEY, JSON.stringify(list));
+  } catch {
+    /* 存不了就算了，不影响这一次使用 */
+  }
+}
+
 // ---------------------------------------------------------------- 主题跟随
 // 颜色全部由宿主主题 CSS 派生（CSS 里一律走 color-mix）。
 // 这里补两件 JS 才能做的事：
@@ -264,13 +305,17 @@ function render() {
 
         <div class="po-revise">
           <input id="po-revise" class="po-revise-input" type="text" spellcheck="false"
-            placeholder="不满意？说要改哪儿，例如：再短一点、去掉第 3 条">
+            placeholder="不满意？说要改哪儿；也可以勾下面的方向，可多选">
           <button id="po-revise-run" class="po-btn" type="button"><span class="po-btn-tx">改</span></button>
         </div>
-        <div class="po-revise-quick" id="po-revise-quick">
-          <button class="po-chip-sm" type="button" data-revise="整体再短一些，砍掉不必要的解释">更短</button>
-          <button class="po-chip-sm" type="button" data-revise="把要求写得更具体、更可判断，减少模糊的形容">更具体</button>
-          <button class="po-chip-sm" type="button" data-revise="语气再平实一些，去掉官方套话和空泛的表述">更平实</button>
+        <div class="po-revise-quick" id="po-revise-quick"></div>
+        <div class="po-more" id="po-more" hidden>
+          <div class="po-more-list" id="po-more-list"></div>
+          <div class="po-more-add">
+            <input id="po-custom-input" class="po-custom-input" type="text" spellcheck="false"
+              placeholder="自定义一个改法，例如：换成更口语的表达">
+            <button id="po-custom-add" class="po-chip-sm" type="button">添加</button>
+          </div>
         </div>
 
         <div class="po-result-actions">
@@ -297,6 +342,10 @@ function render() {
   const reviseEl = document.getElementById("po-revise");
   const reviseBtn = document.getElementById("po-revise-run");
   const reviseQuick = document.getElementById("po-revise-quick");
+  const reviseMoreEl = document.getElementById("po-more");
+  const reviseMoreList = document.getElementById("po-more-list");
+  const customInput = document.getElementById("po-custom-input");
+  const customAdd = document.getElementById("po-custom-add");
   const resultTitleEl = document.getElementById("po-result-title");
   const versionsEl = document.getElementById("po-versions");
   const sourceToggle = document.getElementById("po-source-toggle");
@@ -313,6 +362,9 @@ function render() {
   // 一次原文可以产出多个版本（「再来一版」追加），当前看的是哪一个
   let versions = [];
   let activeVersion = 0;
+  // 勾选的改法（可多选）：点「改」时和手写的要求合并成一条
+  const pickedFixes = new Set();
+  let customFixes = loadCustomFixes();
 
   fitHeight = () => {
     // 取两者较大值：body 有 min-height:100%，只读 body 会在内容比视口矮时
@@ -417,6 +469,88 @@ function render() {
     sourceToggle.setAttribute("aria-expanded", open ? "true" : "false");
     sourceToggle.classList.toggle("is-open", open);
     growResult();
+  };
+
+  // ---- 改法：一排常驻六个，其余收在「更多」里，可多选 ----
+
+  const allFixes = () => [...QUICK_FIXES, ...customFixes];
+
+  const makeFixChip = (fix) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "po-chip-sm" + (pickedFixes.has(fix.id) ? " is-picked" : "");
+    btn.dataset.fixId = fix.id;
+    btn.title = fix.prompt;
+    const label = document.createElement("span");
+    label.textContent = fix.label;
+    btn.appendChild(label);
+    if (fix.custom) {
+      const del = document.createElement("span");
+      del.className = "po-fix-del";
+      del.textContent = "×";
+      del.title = "删除这个自定义改法";
+      del.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        customFixes = customFixes.filter((item) => item.id !== fix.id);
+        pickedFixes.delete(fix.id);
+        saveCustomFixes(customFixes);
+        renderFixLists();
+      });
+      btn.appendChild(del);
+    }
+    return btn;
+  };
+
+  const renderFixLists = () => {
+    reviseQuick.replaceChildren();
+    for (const fix of QUICK_FIXES.filter((item) => item.pinned)) {
+      reviseQuick.appendChild(makeFixChip(fix));
+    }
+    const moreBtn = document.createElement("button");
+    moreBtn.type = "button";
+    moreBtn.className = "po-chip-sm po-chip-more" + (reviseMoreEl.hidden ? "" : " is-open");
+    moreBtn.textContent = reviseMoreEl.hidden ? "更多…" : "收起";
+    moreBtn.addEventListener("click", () => {
+      reviseMoreEl.hidden = !reviseMoreEl.hidden;
+      moreBtn.textContent = reviseMoreEl.hidden ? "更多…" : "收起";
+      moreBtn.classList.toggle("is-open", !reviseMoreEl.hidden);
+      growResult();
+    });
+    reviseQuick.appendChild(moreBtn);
+
+    reviseMoreList.replaceChildren();
+    for (const fix of allFixes().filter((item) => !item.pinned)) {
+      reviseMoreList.appendChild(makeFixChip(fix));
+    }
+  };
+
+  /** 只改被点那个的样式，不重建整排：重建会让连点丢事件，也会把焦点和按压态一起抹掉 */
+  const toggleFix = (id, btn) => {
+    if (pickedFixes.has(id)) pickedFixes.delete(id);
+    else pickedFixes.add(id);
+    if (btn && btn.dataset.fixId === id) {
+      btn.classList.toggle("is-picked", pickedFixes.has(id));
+    } else {
+      renderFixLists();
+    }
+    growResult();
+  };
+
+  /** 把「手写的要求」和「勾选的改法」拼成一条：顺序感就是先你说、后勾的 */
+  const composeRevise = () => {
+    const parts = [];
+    const typed = reviseEl.value.trim();
+    if (typed) parts.push(typed);
+    for (const fix of allFixes()) {
+      if (pickedFixes.has(fix.id)) parts.push(fix.prompt);
+    }
+    return parts.join("；");
+  };
+
+  const clearPicked = () => {
+    pickedFixes.clear();
+    reviseEl.value = "";
+    renderFixLists();
   };
 
   /** 生成中主按钮变成「停止」，其余输入先按住 */
@@ -617,12 +751,14 @@ function render() {
   });
 
   reviseBtn.addEventListener("click", () => {
-    const request = reviseEl.value.trim();
+    const request = composeRevise();
     if (!request) {
       reviseEl.focus();
       return;
     }
-    void runStream(request);
+    // 先把这条回显到输入框，让用户看清这次到底要发什么
+    reviseEl.value = request;
+    void runStream(request).finally(clearPicked);
   });
   reviseEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -631,18 +767,47 @@ function render() {
     }
   });
 
+  // 改法 chip：点一下勾选/取消（可多选），点「改」才真的发出去
   reviseQuick.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-revise]");
+    const btn = e.target.closest("[data-fix-id]");
     if (!btn || streaming) return;
-    reviseEl.value = btn.dataset.revise || "";
-    void runStream(reviseEl.value.trim());
+    if (btn.classList.contains("po-chip-more")) return;
+    toggleFix(btn.dataset.fixId, btn);
+  });
+
+  reviseMoreList.addEventListener("click", (e) => {
+    if (e.target.closest(".po-fix-del")) return;
+    const btn = e.target.closest("[data-fix-id]");
+    if (!btn || streaming) return;
+    toggleFix(btn.dataset.fixId, btn);
+  });
+
+  customAdd.addEventListener("click", () => {
+    const text = customInput.value.trim();
+    if (!text) {
+      customInput.focus();
+      return;
+    }
+    const label = text.length > 6 ? text.slice(0, 6) : text;
+    customFixes = customFixes.concat({ id: "c" + Date.now().toString(36), label, prompt: text, custom: true });
+    saveCustomFixes(customFixes);
+    customInput.value = "";
+    renderFixLists();
+    growResult();
+  });
+
+  customInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      customAdd.click();
+    }
   });
 
   clearBtn.addEventListener("click", () => {
     if (streaming) abortCtrl?.abort();
     inputEl.value = "";
     extraEl.value = "";
-    reviseEl.value = "";
+    clearPicked();
     resultEl.value = "";
     resultWrap.hidden = true;
     lastAssistant = null;
@@ -667,6 +832,7 @@ function render() {
     resultWrap.hidden = true;
     lastAssistant = null;
     sourceText = "";
+    clearPicked();
     versions = [];
     activeVersion = 0;
     syncSource();
@@ -683,6 +849,7 @@ function render() {
 
   syncCount();
   syncRunButton();
+  renderFixLists();
   requestAnimationFrame(fitHeight);
 }
 
