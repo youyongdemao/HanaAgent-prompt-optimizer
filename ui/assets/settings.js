@@ -220,7 +220,7 @@ function renderStyles() {
   if (!customStyles.length) {
     const empty = document.createElement("p");
     empty.className = "fx-empty";
-    empty.textContent = "还没有自定义场景，卡片顶上那排就还是内置的六个。";
+    empty.textContent = "还没有自己的场景呢~";
     list.appendChild(empty);
   }
 
