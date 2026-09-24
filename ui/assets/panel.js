@@ -296,6 +296,7 @@ function render() {
 
         <div class="po-revise-tools">
           <div class="po-split">
+            <button id="po-revise-picked" class="po-split-btn" type="button" title="以流程图上选中的那一节为底稿，重出一版">按所选项更新</button>
             <button id="po-revise-left" class="po-split-btn" type="button" title="基于左栏这一版重出一版（不写要求时就等于「+」）">重写</button>
             <button id="po-revise-right" class="po-split-btn" type="button" title="基于右栏那一版，按新要求改进">改进</button>
           </div>
@@ -305,8 +306,8 @@ function render() {
           placeholder="不满意？说要改哪儿；上面的方向可以多选"></textarea>
         <div class="po-result-actions">
           <div class="po-split po-copy-split">
-            <button id="po-copy" class="po-split-btn" type="button" title="复制左栏这个最新版本">复制最新版本</button>
-            <button id="po-copy-picked" class="po-split-btn" type="button" title="复制右栏正在看的那一版">复制所选版</button>
+            <button id="po-copy" class="po-split-btn" type="button" title="复制左栏这个最新版本">复制最新项</button>
+            <button id="po-copy-picked" class="po-split-btn" type="button" title="复制右栏正在看的那一版">复制所选项</button>
           </div>
         </div>
       </section>
@@ -327,6 +328,7 @@ function render() {
   const copyBtn = document.getElementById("po-copy");
   const copyPickedBtn = document.getElementById("po-copy-picked");
   const reviseEl = document.getElementById("po-revise");
+  const revisePickedBtn = document.getElementById("po-revise-picked");
   const reviseQuick = document.getElementById("po-revise-quick");
   const resultTitleEl = document.getElementById("po-result-title");
   const chainEl = document.getElementById("po-chain");
@@ -721,6 +723,7 @@ function render() {
       ? "写了要求请点「改进」；「重写」是不改要求再出一版"
       : "基于左栏这一版重出一版（等于上面的「+」）";
     reviseRight.disabled = streaming;
+    revisePickedBtn.disabled = streaming;
     clearBtn.disabled = streaming;
     // 刚被禁用的按钮上如果正停着光晕，立刻收掉，不用等鼠标动
     dropStaleGlow();
@@ -1057,6 +1060,17 @@ function render() {
     runRewriteOf(branches[activeBranch]);
   };
 
+  /** 「按所选项更新」：以流程图上选中那一节的底稿重出一版（和「重写」同款，只换基准） */
+  const runUpdateFromPicked = () => {
+    const branch = branches[inspecting ? inspecting.branch : activeBranch];
+    if (!branch) {
+      setError("先在流程图上点一节，再按所选项更新。");
+      return;
+    }
+    runRewriteOf(branch);
+  };
+
+  revisePickedBtn.addEventListener("click", runUpdateFromPicked);
   reviseLeft.addEventListener("click", () => runRevise("left"));
   reviseRight.addEventListener("click", () => runRevise("right"));
   // 与基础提示词一致：Enter 执行，Shift + Enter 换行
