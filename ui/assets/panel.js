@@ -357,7 +357,7 @@ function render() {
   let inspecting = null; // 右栏：null = 原文；否则 { branch, item }
   // 勾选的改法（可多选）：点「改」时和手写的要求合并成一条
   const pickedFixes = new Set();
-  // 卡片只负责用：自定义清单 + 「按内容现推方向」的开关都从设置页那份配置读。
+  // 卡片只负责用：自定义清单 + 「根据内容主题推荐」的开关都从设置页那份配置读。
   let enabledFixes = loadActiveFixes();
   let suggestOn = loadSuggest();
   let suggestedItems = [];
@@ -740,8 +740,8 @@ function render() {
     syncRunButton();
   };
 
-  // chips 由设置页那份自定义清单 + 按内容现推的方向合成：
-  // 现推方向在最前面（针对这条提示词），自定义跟在后面，总共不超过 MAX_CHIPS。
+  // chips 由设置页那份自定义清单 + 根据内容主题推荐出来的方向合成：
+  // 推荐方向在最前面（针对这条提示词），自定义跟在后面，总共不超过 MAX_CHIPS。
   // 开关关掉时全是自定义。后端 /suggest-fixes 每次都只出方向，不碰自定义那份。
   let suggestTimer = 0;
   let suggestSeq = 0;
@@ -766,7 +766,7 @@ function render() {
           body: JSON.stringify({ text }),
         });
         if (!res.ok) {
-          console.warn("[prompt-optimizer] 取现推方向失败", res.status);
+          console.warn("[prompt-optimizer] 取推荐方向失败", res.status);
           return;
         }
         const data = await res.json().catch(() => null);
@@ -1060,7 +1060,7 @@ function render() {
   }
 
   inputEl.addEventListener("input", syncCount);
-  // 提示词一改，就重新问一次「这条适合往哪改」（现推开关关着时这步什么都不做）
+  // 提示词一改，就重新问一次「这条适合往哪改」（推荐开关关着时这步什么都不做）
   inputEl.addEventListener("input", scheduleSuggestion);
   // 输入框里一有要求，「重写」就腾出位置给「改进」
   reviseEl.addEventListener("input", syncRunButton);

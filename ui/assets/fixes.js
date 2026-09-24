@@ -8,7 +8,7 @@ const SUGGEST_KEY = "po-suggest-v1";
 
 /** 卡片上那一排最多同时摆这么多 */
 export const MAX_CHIPS = 8;
-/** 「按内容现推方向」打开时，至少给它留这么多位置 */
+/** 「根据内容主题推荐」打开时，至少给它留这么多位置 */
 export const SUGGEST_FLOOR = 4;
 /** 基础提示词短于这个长度就不去问模型：没什么可推的 */
 export const SUGGEST_MIN_CHARS = 8;
@@ -76,7 +76,7 @@ export function saveFixes(list) {
   }
 }
 
-/** 「按内容现推方向」这个开关：本机缓存一份，真身在 App 那一侧 */
+/** 「根据内容主题推荐」这个开关：本机缓存一份，真身在 App 那一侧 */
 export function loadSuggest() {
   try {
     return window.localStorage.getItem(SUGGEST_KEY) === "1";
@@ -99,7 +99,7 @@ export function loadActiveFixes() {
 }
 
 /**
- * 从 App 那一侧取配置（清单 + 现推开关）。拿不到就返回 null，
+ * 从 App 那一侧取配置（清单 + 推荐开关）。拿不到就返回 null，
  * 调用方留着本地缓存先跑，等下一次再对齐。
  */
 export async function pullConfig() {
@@ -141,9 +141,9 @@ export async function pushConfig(list, suggest) {
 }
 
 /**
- * 卡片那一排到底摆什么：自定义在前（开着的那些），现推在后，总数不超过 MAX_CHIPS。
- * suggestOn 关掉时全是自定义；打开时至少给现推留 SUGGEST_FLOOR 个位置，
- * 自定义不足四条时空出来的位置也归现推。
+ * 卡片那一排到底摆什么：自定义在前（开着的那些），推荐在后，总数不超过 MAX_CHIPS。
+ * suggestOn 关掉时全是自定义；打开时至少给推荐留 SUGGEST_FLOOR 个位置，
+ * 自定义不足四条时空出来的位置也归推荐。
  */
 export function composeChips({ enabled, suggested, suggestOn }) {
   const list = Array.isArray(enabled) ? enabled : [];
@@ -159,7 +159,7 @@ export function composeChips({ enabled, suggested, suggestOn }) {
     extra.push({ id: item.id || "s" + extra.length, label, prompt });
   }
   const slots = Math.max(SUGGEST_FLOOR, MAX_CHIPS - custom.length);
-  // 现推还没到位或没拿到：不摆空位，先把自定义那份摆满
+  // 推荐还没到位或没拿到：不摆空位，先把自定义那份摆满
   if (!extra.length) return list.slice(0, MAX_CHIPS);
   return [...custom, ...extra.slice(0, slots)];
 }

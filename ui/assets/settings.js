@@ -150,7 +150,7 @@ $("fxReset")?.addEventListener("click", () => {
   renderFx();
 });
 
-// 「按内容现推方向」开关：跟清单里那些开关一样，点「保存修改」才落盘
+// 「根据内容主题推荐」开关：跟清单里那些开关一样，点「保存修改」才落盘
 const suggestBox = $("fxSuggest");
 if (suggestBox) suggestBox.checked = suggestOn;
 suggestBox?.addEventListener("change", () => {
