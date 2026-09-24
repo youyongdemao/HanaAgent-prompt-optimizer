@@ -3,7 +3,7 @@
 // 应用自己的后端接口走 app-api.js（/api/apps/prompt-optimizer/routes/）。
 import { hana } from "./sdk.js";
 import { apiUrl, appHeaders } from "./app-api.js";
-import { DEFAULT_FIXES, loadActiveFixes, pullFixes } from "./fixes.js";
+import { loadActiveFixes, pullFixes } from "./fixes.js";
 
 async function toast(message, type = "info") {
   try {
@@ -366,15 +366,25 @@ function render() {
   const pullIntoPanes = () => {
     void pullFixes().then((remote) => {
       if (!remote) return;
+      // 设置页里关掉的项就是不上卡片：这份清单是卡片 chips 的唯一来源
       const active = remote.filter((item) => item.on !== false);
       if (fixSig(active) === fixSig(fixes)) return; // 没变就别动，免得把已经勾好的清掉
-      applyFixes(active.length ? active : remote, true);
+      applyFixes(active, true);
     });
   };
   pullIntoPanes();
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") pullIntoPanes();
   });
+  // 点回卡片也算一次对账：那两个信号靠不住时，这一条能兜底
+  window.addEventListener("focus", () => pullIntoPanes());
+  // 设置页保存后宿主会广播一次 App 存储变更：卡片当场跟上，不用关掉卡片重开。
+  // 单靠 visibilitychange 不够用：设置页开在另一个窗口，卡片这边的 document 一直是 visible。
+  try {
+    hana.storage?.global?.onChanged?.(() => pullIntoPanes());
+  } catch {
+    /* 订不上就退回上面那两条路 */
+  }
 
   // 高度上报：只在真的变了（差 8px 以上）时发一次，且内容变短也要跟着缩，
   // 否则卡片底下会空一大片。生成期间不走这里（那时高度一直变，反复叫醒宿主会把滚动打回顶部）。
@@ -706,45 +716,23 @@ function render() {
   /** 生成中主按钮变成「停止」，其余输入先按住 */
   /** 换成一份新清单（模型建议的，或退回默认的），并刷新 chips */
   const applyFixes = (list, keepPicked = false) => {
-    if (!Array.isArray(list) || !list.length) return;
+    if (!Array.isArray(list)) return;
     fixes = list;
     // 自动对齐时不动勾选：用户可能正挑到一半
     if (!keepPicked) pickedFixes.clear();
+    // 设置页刚关掉的项如果本来勾着，得把勾也摘掉，否则「有没有要求」的判断会虚着
+    for (const id of [...pickedFixes]) {
+      if (!list.some((item) => item.id === id)) pickedFixes.delete(id);
+    }
     renderFixLists();
     syncReviseHint();
     syncRunButton();
   };
 
-  /**
-   * 基础提示词停下笔后，问一次「这条适合往哪改」，用它换掉 chips 清单。
-   * 输入没停不发、后又改了就作废上一次结果，免得旧建议盖住新的。
-   */
-  let suggestTimer = 0;
-  let suggestSeq = 0;
-  const scheduleFixSuggestion = () => {
-    const text = inputEl.value.trim();
-    const seq = ++suggestSeq;
-    clearTimeout(suggestTimer);
-    if (text.length < 8) {
-      applyFixes(DEFAULT_FIXES.map((item) => ({ ...item })));
-      return;
-    }
-    suggestTimer = setTimeout(async () => {
-      try {
-        const res = await fetch(apiUrl("/suggest-fixes"), {
-          method: "POST",
-          headers: appHeaders({ "content-type": "application/json" }),
-          body: JSON.stringify({ text }),
-        });
-        if (!res.ok) return;
-        const data = await res.json().catch(() => null);
-        if (seq !== suggestSeq) return; // 期间又改了输入，这次结果作废
-        applyFixes(data?.items);
-      } catch {
-        /* 拿不到建议就留着现有清单，不打扰使用 */
-      }
-    }, 700);
-  };
+  // chips 只由设置页那份清单决定（开关说了算）。
+  // 早先这里还挂着「输入停下后按提示词内容现推方向、并整体替换 chips」那一套，
+  // 结果是设置页关掉的项照样出现、改过的项反而看不到，开关等于没接上 —— 已去掉。
+  // 后端 /suggest-fixes 路由保留着，想把它接回来随时能接。
 
   /** 「继续改」输入框的提示跟着这轮勾选的改法实时变，一眼知道这次要改什么 */
   const syncReviseHint = () => {
@@ -1027,8 +1015,6 @@ function render() {
   }
 
   inputEl.addEventListener("input", syncCount);
-  // 提示词一改，就重新问一次「这条适合往哪改」
-  inputEl.addEventListener("input", scheduleFixSuggestion);
   // 输入框里一有要求，「重写」就腾出位置给「改进」
   reviseEl.addEventListener("input", syncRunButton);
 
