@@ -597,6 +597,8 @@ function render() {
     pickedFixes.clear();
     reviseEl.value = "";
     renderFixLists();
+    // 要求清空了，「重写」得跟着恢复可用
+    syncRunButton();
   };
 
   /** 生成中主按钮变成「停止」，其余输入先按住 */
