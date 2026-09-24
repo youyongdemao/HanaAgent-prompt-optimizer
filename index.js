@@ -158,13 +158,16 @@ export default defineApp(async (sdk) => {
       } catch {
         body = {};
       }
+      // 两块都可选：设置页那个「根据内容主题推荐」开关不带清单单独发过来（即改即生效，
+      // 不等「保存修改」），清单那份照旧带 items；两块都不给才算坏请求。
       const items = Array.isArray(body?.items) ? body.items : null;
-      if (!items) return c.json({ ok: false, error: "BAD_BODY" }, 400);
+      const suggest = typeof body?.suggest === "boolean" ? body.suggest : null;
+      if (!items && suggest === null) return c.json({ ok: false, error: "BAD_BODY" }, 400);
       try {
-        await sdk.storage.global.set("fixes", items);
-        // 开关可选：这一版旧客户端不带它，带上才写，免得把它洗掉
-        if (typeof body?.suggest === "boolean") await sdk.storage.global.set("suggest", body.suggest);
-        return c.json({ ok: true, count: items.length });
+        // 给了哪块写哪块，没给的不动，免得把另一块洗掉
+        if (items) await sdk.storage.global.set("fixes", items);
+        if (suggest !== null) await sdk.storage.global.set("suggest", suggest);
+        return c.json({ ok: true, count: items ? items.length : null });
       } catch (err) {
         return c.json({ ok: false, error: "WRITE_FAILED", message: String(err?.message || err) }, 500);
       }

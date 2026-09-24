@@ -141,6 +141,27 @@ export async function pushConfig(list, suggest) {
 }
 
 /**
+ * 只把「根据内容主题推荐」开关落盘，不碰清单：设置页那个开关即改即生效，不走「保存修改」。
+ * 返回 {ok,status}，本机缓存无论如何先跟上，App 那一侧写失败只影响卡片。
+ */
+export async function pushSuggest(on) {
+  const flag = on === true;
+  saveSuggest(flag);
+  try {
+    const res = await fetch(apiUrl("fixes"), {
+      method: "POST",
+      headers: appHeaders({ "content-type": "application/json" }),
+      body: JSON.stringify({ suggest: flag }),
+    });
+    if (!res.ok) console.warn("[prompt-optimizer] 保存推荐开关失败", res.status, await res.text().catch(() => ""));
+    return { ok: res.ok, status: res.status };
+  } catch (err) {
+    console.warn("[prompt-optimizer] 保存推荐开关异常", err);
+    return { ok: false, status: 0 };
+  }
+}
+
+/**
  * 卡片那一排到底摆什么：自定义在前（开着的那些），推荐在后，总数不超过 MAX_CHIPS。
  * suggestOn 关掉时全是自定义；打开时至少给推荐留 SUGGEST_FLOOR 个位置，
  * 自定义不足四条时空出来的位置也归推荐。

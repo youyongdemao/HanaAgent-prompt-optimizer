@@ -5,7 +5,7 @@ import { hana } from "./sdk.js";
 import { apiFetch } from "./app-api.js";
 import { openUpdateNotice } from "./update-notice.js";
 import { initHostThemeSync } from "./theme-sync.js";
-import { loadFixes, loadSuggest, pullConfig, pushConfig, DEFAULT_FIXES, newFixId } from "./fixes.js";
+import { loadFixes, loadSuggest, pullConfig, pushConfig, pushSuggest, DEFAULT_FIXES, newFixId } from "./fixes.js";
 hana.ready();
 
 // 主题跟随宿主窗口：与其它页面共用同一套，不各自读 iframe URL 里的初值
@@ -150,12 +150,22 @@ $("fxReset")?.addEventListener("click", () => {
   renderFx();
 });
 
-// 「根据内容主题推荐」开关：跟清单里那些开关一样，点「保存修改」才落盘
+// 「根据内容主题推荐」开关：不等「保存修改」，拨一下就落盘（清单不动）。
+// 卡片那侧监听了 App 存储变更，改完不用重开卡片就是新的。
 const suggestBox = $("fxSuggest");
 if (suggestBox) suggestBox.checked = suggestOn;
-suggestBox?.addEventListener("change", () => {
+suggestBox?.addEventListener("change", async () => {
   suggestOn = suggestBox.checked;
-  markDirty();
+  // 清单那份的未保存状态与这个开关无关：先记下来，落盘完再把提示放回去
+  const pendingItems = dirty;
+  setFxStatus("保存中…");
+  const r = await pushSuggest(suggestOn);
+  if (!r.ok) {
+    setFxStatus(`开关没存到 App 那一侧（HTTP ${r.status || "网络异常"}），已留在本机`, "err");
+    return;
+  }
+  if (pendingItems) setFxStatus("有未保存的修改", "warn");
+  else setFxStatus(suggestOn ? "已开启" : "已关闭", "ok");
 });
 
 $("fxSave")?.addEventListener("click", async () => {
