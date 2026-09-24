@@ -482,3 +482,39 @@ body {
 
 .fx-input-label { font-size: 12px; }
 .fx-input-desc { font-size: 12px; color: var(--text); }
+/* ── 与「关于」那张列表完全对齐 ──
+   同一页里两块容器底色必须同源：那边用 var(--bg-card)，这边原来自己配了一份 4% 混色，
+   摆一起就会一个偏暖一个偏白。边框、圆角半径也一并对齐，行间分隔线同样两端内缩。 */
+.fx-card {
+  border: 0;
+  border-radius: 12px;
+  background: var(--bg-card, color-mix(in srgb, var(--text) 5%, transparent));
+  padding: 4px 0;
+  overflow: hidden;
+}
+
+.fx-row {
+  border-bottom: 0;
+  padding: 9px 16px;
+}
+
+.fx-row:last-child { border-bottom: 0; }
+
+.fx-row + .fx-row { position: relative; }
+
+.fx-row + .fx-row::before,
+.fx-foot::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+}
+
+.fx-foot {
+  position: relative;
+  border-top: 0;
+  padding: 9px 16px;
+}
