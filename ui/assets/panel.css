@@ -702,7 +702,7 @@ body[data-color-mode="dark"] .po-error,
 @media (max-width: 560px) {
   .po-compare {
     grid-template-columns: minmax(0, 1fr);
-    gap: 18px;
+    gap: 26px;
   }
 }
 
