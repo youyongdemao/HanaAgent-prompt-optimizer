@@ -366,13 +366,18 @@ function render() {
   const pickedFixes = new Set();
   let customFixes = loadCustomFixes();
 
+  // 只在高度真的变了才上报。以前每次都发，宿主反复重排，滚动位置会被打回顶部。
+  let lastReportedHeight = 0;
   fitHeight = () => {
     // 取两者较大值：body 有 min-height:100%，只读 body 会在内容比视口矮时
     // 回一个等于视口的高，宿主收到「高度没变」就不会再调窗口。
     const h = Math.ceil(
       Math.max(document.body.scrollHeight || 0, document.documentElement.scrollHeight || 0),
     );
-    if (h > 120) hana.ui.resize({ height: h });
+    if (h <= 120) return;
+    if (Math.abs(h - lastReportedHeight) < 2) return;
+    lastReportedHeight = h;
+    hana.ui.resize({ height: h });
   };
 
   const setError = (msg) => {
@@ -400,13 +405,23 @@ function render() {
     fitHeight();
   };
 
-  // 流式期间每来一段 delta 都重算高度会抖，用 rAF 合并成每帧一次
+  // rAF 句柄：流式期间跟着滚到底用它合帧
   let growRaf = 0;
-  const scheduleGrow = () => {
+
+  // 生成期间把结果框高度钉住：它一直在长，每长一次就上报一次高度，
+  // 等于一秒钟叫醒宿主好几次，滚动位置全给抖掉了。改成内部滚动 + 跟着滚到底。
+  const STREAM_BOX_HEIGHT = 240;
+  const pinResultHeight = () => {
+    resultEl.style.height = `${STREAM_BOX_HEIGHT}px`;
+  };
+  const keepResultAtBottom = () => {
+    resultEl.scrollTop = resultEl.scrollHeight;
+  };
+  const followStream = () => {
     if (growRaf) return;
     growRaf = requestAnimationFrame(() => {
       growRaf = 0;
-      growResult();
+      keepResultAtBottom();
     });
   };
 
@@ -606,7 +621,9 @@ function render() {
     resultWrap.hidden = false;
     resultTitleEl.textContent = isRevise ? "修改中" : "生成中";
     lenInfoEl.textContent = "";
-    growResult();
+    // 先稳着来：生成期间高度不变，内容在里面滚
+    pinResultHeight();
+    fitHeight();
 
     abortCtrl = new AbortController();
     let acc = "";
@@ -658,7 +675,7 @@ function render() {
             acc += event.delta;
             resultEl.value = cleanStreaming(acc);
             lenInfoEl.textContent = `${sourceText.length} → ${resultEl.value.length} 字`;
-            scheduleGrow();
+            followStream();
           } else if (event.type === "done") {
             finished = true;
             const finalText =
@@ -694,6 +711,7 @@ function render() {
         lenInfoEl.textContent = resultEl.value
           ? `${sourceText.length} → ${resultEl.value.length} 字`
           : "已停止";
+        growResult();
         toast("已停止生成", "info");
       } else {
         setError(String(err?.message || err));
