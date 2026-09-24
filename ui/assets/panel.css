@@ -1118,3 +1118,56 @@ body[data-color-mode="dark"] .po-error,
 .po-split-btn:hover:not(:disabled) {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent), 0 2px 12px var(--po-glow);
 }
+/* ── 改左面/改右面：外层降级成纯容器，每一格自己是完整胶囊 ──
+   之前是「外框管圆角、格子管描边」，于是圆角把描边裁断、两层边框分离、
+   上浮也被外层锁住。现在外框不要边框/背景/圆角，全部交给格子。 */
+.po-split {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+  gap: 0;
+}
+
+.po-split-btn {
+  border: 1px solid var(--po-glass-border);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--bg-card) 74%, transparent), color-mix(in srgb, var(--bg-card) 40%, transparent));
+  box-shadow: inset 0 1px 0 var(--po-glass-hi), 0 1px 6px rgba(0, 0, 0, .12);
+  border-radius: 0;
+  transition: color .16s, background .16s, box-shadow .18s, border-color .16s, transform .14s ease;
+}
+
+.po-split-btn:first-child {
+  border-radius: 999px 0 0 999px;
+}
+
+.po-split-btn:last-child {
+  border-radius: 0 999px 999px 0;
+}
+
+/* 两格贴合处让边框叠成一条缝，而不是留空隙 */
+.po-split-btn + .po-split-btn {
+  margin-left: -1px;
+}
+
+/* 悬停：被指的那一格轻微上移放大，圆角、描边、光晕都跟着它自己走 */
+.po-split-btn:hover:not(:disabled) {
+  position: relative;
+  z-index: 1;
+  transform: translateY(-1px) scale(1.03);
+  color: var(--po-ink);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 18%, transparent), color-mix(in srgb, var(--accent) 8%, transparent));
+  box-shadow: 0 3px 14px var(--po-glow), inset 0 1px 0 var(--po-glass-hi);
+}
+
+.po-split-btn:active:not(:disabled) {
+  transform: translateY(0) scale(.97);
+}
+
+/* 外框不再整体亮 */
+.po-split:has(.po-split-btn:hover) {
+  border-color: transparent;
+  box-shadow: none;
+}
