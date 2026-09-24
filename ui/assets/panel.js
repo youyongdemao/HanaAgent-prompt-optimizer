@@ -454,19 +454,8 @@ function render() {
     };
 
     chainEl.appendChild(makeNode(null));
-    branches.forEach((branch, index) => {
-      if (branch.from) {
-        // 分叉：换一行、缩进一级，用 ↳ 表示它从别处接过来
-        const brk = document.createElement("span");
-        brk.className = "po-chain-break";
-        chainEl.appendChild(brk);
-        const fork = document.createElement("span");
-        fork.className = "po-chain-fork";
-        fork.textContent = "↳";
-        chainEl.appendChild(fork);
-      } else {
-        chainEl.appendChild(makeArrow());
-      }
+    branches.forEach((_, index) => {
+      chainEl.appendChild(makeArrow());
       chainEl.appendChild(makeNode(index));
     });
   };
@@ -632,7 +621,7 @@ function render() {
     return out;
   };
 
-  const runStream = async (revise = "", { labels = [], mode = "branch", from = null } = {}) => {
+  const runStream = async (revise = "", { labels = [], mode = "branch" } = {}) => {
     if (streaming) return;
     const text = inputEl.value.trim();
     if (!text) {
@@ -654,8 +643,6 @@ function render() {
     // 这次站在哪一版上改的：记进大版本。日后「重写一次」要退回它，
     // 否则模型会贴着上一版微调，新出的那一版看起来没区別。
     const startAssistant = lastAssistant;
-    // 这次是不是从更早的节上开的支（由调用方判定）
-    const pendingFrom = from;
 
     setError("");
     streaming = true;
@@ -749,18 +736,11 @@ function render() {
                 : detail.length > 10
                   ? detail.slice(0, 10) + "…"
                   : detail;
-              // 分叉由调用方判定（从更早的节上改才算）；限一级：来源本身已是分叉就挂回主干
-              let resolvedFrom = pendingFrom;
-              if (resolvedFrom) {
-                const srcBranch = branches[resolvedFrom.branch];
-                if (srcBranch && srcBranch.from) resolvedFrom = srcBranch.from;
-              }
               branches.push({
                 label,
                 detail,
                 labels: pendingLabels.slice(),
                 base: startAssistant,
-                from: resolvedFrom,
                 items: [item],
               });
               activeBranch = branches.length - 1;
@@ -772,7 +752,7 @@ function render() {
                 : null;
             } else {
               // 首轮优化：第一个大版本
-              branches.push({ label: "初版", detail: "从原文直接优化", labels: [], base: null, from: null, items: [item] });
+              branches.push({ label: "初版", detail: "从原文直接优化", labels: [], base: null, items: [item] });
               activeBranch = 0;
               activeItem = 0;
               inspecting = null;
@@ -916,14 +896,10 @@ function render() {
     }
 
     lastAssistant = base.assistant;
-    // 从更早的节上改 = 开分支；在最新那节上接着改就是顺序推进
-    const srcBranch = side === "right" && inspecting ? inspecting.branch : activeBranch;
-    const srcItem = side === "right" && inspecting ? inspecting.item : activeItem;
-    const from = srcBranch !== branches.length - 1 ? { branch: srcBranch, item: srcItem } : null;
     // 先把这条回显到输入框，让用户看清这次到底要发什么
     reviseEl.value = request;
     autoGrow(reviseEl);
-    void runStream(request, { labels, mode: "branch", from }).finally(clearPicked);
+    void runStream(request, { labels, mode: "branch" }).finally(clearPicked);
   };
 
   /** 「+」：不带新要求，在当前大版本上再重写一次，记成小版本 */

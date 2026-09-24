@@ -1192,15 +1192,3 @@ body[data-color-mode="dark"] .po-error,
 .po-copy-split .po-split-btn + .po-split-btn {
   border-left: 1px solid color-mix(in srgb, var(--po-on-accent, #fff) 26%, transparent);
 }
-/* ── 链条里的分叉：换一行、缩进一级，用 ↳ 接上（树只展开一级） ── */
-.po-chain-break {
-  flex-basis: 100%;
-  height: 0;
-}
-
-.po-chain-fork {
-  color: var(--po-ink-faint);
-  opacity: .7;
-  font-size: 10px;
-  padding-left: 6px;
-}
