@@ -250,9 +250,17 @@ function render() {
       <section id="po-result-wrap" class="po-result-wrap" hidden>
         <div class="po-result-head">
           <span id="po-result-title">优化结果</span>
+          <span class="po-versions" id="po-versions" hidden></span>
           <span id="po-leninfo" class="po-leninfo"></span>
         </div>
         <textarea id="po-result" class="po-result" spellcheck="false" readonly></textarea>
+
+        <div class="po-source">
+          <button id="po-source-toggle" class="po-source-toggle" type="button" aria-expanded="false">
+            <span class="po-caret" aria-hidden="true">▸</span><span>原文对照</span><span class="po-source-len" id="po-source-len"></span>
+          </button>
+          <pre id="po-source-text" class="po-source-text" hidden></pre>
+        </div>
 
         <div class="po-revise">
           <input id="po-revise" class="po-revise-input" type="text" spellcheck="false"
@@ -268,6 +276,7 @@ function render() {
         <div class="po-result-actions">
           <button id="po-copy" class="po-btn primary" type="button"><span class="po-btn-tx">复制</span></button>
           <button id="po-back" class="po-btn" type="button"><span class="po-btn-tx">替换原文</span></button>
+          <button id="po-again" class="po-btn po-btn-ghost" type="button"><span class="po-btn-tx">再来一版</span></button>
         </div>
       </section>
 
@@ -290,13 +299,22 @@ function render() {
   const reviseBtn = document.getElementById("po-revise-run");
   const reviseQuick = document.getElementById("po-revise-quick");
   const resultTitleEl = document.getElementById("po-result-title");
+  const versionsEl = document.getElementById("po-versions");
+  const againBtn = document.getElementById("po-again");
+  const sourceToggle = document.getElementById("po-source-toggle");
+  const sourceTextEl = document.getElementById("po-source-text");
+  const sourceLenEl = document.getElementById("po-source-len");
 
   let style = "general";
   let streaming = false;
   let abortCtrl = null;
   // 上一版结果的完整 assistant 消息（含模型的签名字段），迭代精修时原样带回
   let lastAssistant = null;
-  let lastSource = "";
+  // 本轮优化用的原文：既是长度对比的基准，也是「原文对照」展示的内容
+  let sourceText = "";
+  // 一次原文可以产出多个版本（「再来一版」追加），当前看的是哪一个
+  let versions = [];
+  let activeVersion = 0;
 
   fitHeight = () => {
     // 取两者较大值：body 有 min-height:100%，只读 body 会在内容比视口矮时
@@ -342,6 +360,57 @@ function render() {
     });
   };
 
+  /** 版本切换条：只有一版时整条不出现 */
+  const renderVersions = () => {
+    if (versions.length <= 1) {
+      versionsEl.hidden = true;
+      versionsEl.replaceChildren();
+      return;
+    }
+    versionsEl.replaceChildren();
+    versions.forEach((_, index) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "po-version-btn" + (index === activeVersion ? " is-on" : "");
+      btn.textContent = String(index + 1);
+      btn.title = "第 " + (index + 1) + " 版";
+      btn.addEventListener("click", () => showVersion(index));
+      versionsEl.appendChild(btn);
+    });
+    versionsEl.hidden = false;
+  };
+
+  /** 切到某一版：正文、长度、以及迭代精修要带回的 assistant 都跟着换 */
+  const showVersion = (index) => {
+    const item = versions[index];
+    if (!item) return;
+    activeVersion = index;
+    resultEl.value = item.text;
+    lastAssistant = item.assistant;
+    lenInfoEl.textContent = `${sourceText.length} → ${item.text.length} 字`;
+    renderVersions();
+    growResult();
+  };
+
+  /** 原文对照：默认收起，展开才占地方 */
+  const syncSource = () => {
+    sourceTextEl.textContent = sourceText;
+    sourceLenEl.textContent = sourceText ? `${sourceText.length} 字` : "";
+    if (!sourceText) {
+      sourceTextEl.hidden = true;
+      sourceToggle.setAttribute("aria-expanded", "false");
+      sourceToggle.classList.remove("is-open");
+    }
+  };
+
+  const toggleSource = () => {
+    const open = sourceTextEl.hidden;
+    sourceTextEl.hidden = !open;
+    sourceToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    sourceToggle.classList.toggle("is-open", open);
+    growResult();
+  };
+
   /** 生成中主按钮变成「停止」，其余输入先按住 */
   const syncRunButton = () => {
     runBtn.disabled = false;
@@ -363,7 +432,7 @@ function render() {
     return out;
   };
 
-  const runStream = async (revise = "") => {
+  const runStream = async (revise = "", { append = false } = {}) => {
     if (streaming) return;
     const text = inputEl.value.trim();
     if (!text) {
@@ -382,9 +451,15 @@ function render() {
     syncRunButton();
 
     if (!isRevise) {
-      lastAssistant = null;
-      lastSource = text;
+      // 「再来一版」不丢已有版本；普通优化则重开一轮，也换掉对比用的原文
+      if (!append) {
+        versions = [];
+        activeVersion = 0;
+      }
+      sourceText = text;
       resultEl.value = "";
+      syncSource();
+      renderVersions();
     }
     resultWrap.hidden = false;
     resultTitleEl.textContent = isRevise ? "修改中" : "生成中";
@@ -440,17 +515,26 @@ function render() {
           if (event.type === "text-delta") {
             acc += event.delta;
             resultEl.value = cleanStreaming(acc);
-            lenInfoEl.textContent = `${text.length} → ${resultEl.value.length} 字`;
+            lenInfoEl.textContent = `${sourceText.length} → ${resultEl.value.length} 字`;
             scheduleGrow();
           } else if (event.type === "done") {
             finished = true;
-            lastAssistant = event.assistant || null;
             const finalText =
               typeof event.optimized === "string" && event.optimized
                 ? event.optimized
                 : cleanStreaming(acc);
+            if (isRevise) {
+              // 继续改是「改当前这一版」，不另开一版
+              versions[activeVersion] = { text: finalText, assistant: event.assistant || null };
+              lastAssistant = event.assistant || null;
+            } else {
+              versions.push({ text: finalText, assistant: event.assistant || null });
+              activeVersion = versions.length - 1;
+              lastAssistant = event.assistant || null;
+            }
             resultEl.value = finalText;
-            lenInfoEl.textContent = `${text.length} → ${finalText.length} 字`;
+            lenInfoEl.textContent = `${sourceText.length} → ${finalText.length} 字`;
+            renderVersions();
             growResult();
           } else if (event.type === "error") {
             throw new Error(event.message || "生成失败。");
@@ -466,7 +550,7 @@ function render() {
         // 主动停：已经收到的部分留着，不白扔
         resultTitleEl.textContent = "已停止";
         lenInfoEl.textContent = resultEl.value
-          ? `${lastSource.length} → ${resultEl.value.length} 字`
+          ? `${sourceText.length} → ${resultEl.value.length} 字`
           : "已停止";
         toast("已停止生成", "info");
       } else {
@@ -554,7 +638,11 @@ function render() {
     resultEl.value = "";
     resultWrap.hidden = true;
     lastAssistant = null;
-    lastSource = "";
+    sourceText = "";
+    versions = [];
+    activeVersion = 0;
+    syncSource();
+    renderVersions();
     setError("");
     syncCount();
     inputEl.focus();
@@ -562,7 +650,7 @@ function render() {
 
   copyBtn.addEventListener("click", copyResult);
 
-  // 把结果搬回输入框：方便换场景再优化一轮，或者手工再改两笔
+  // 把当前这一版搬回输入框：方便换场景再优化一轮，或者手工再改两笔
   backBtn.addEventListener("click", () => {
     const text = resultEl.value.trim();
     if (!text) return;
@@ -570,12 +658,24 @@ function render() {
     resultEl.value = "";
     resultWrap.hidden = true;
     lastAssistant = null;
-    lastSource = "";
+    sourceText = "";
+    versions = [];
+    activeVersion = 0;
+    syncSource();
+    renderVersions();
     setError("");
     syncCount();
     inputEl.focus();
     toast("已放回输入框，可以改完再优化", "success");
   });
+
+  // 同一段原文再出一版，已有版本留着，1/2/3 可以来回切着比
+  againBtn.addEventListener("click", () => {
+    if (streaming) return;
+    void runStream("", { append: true });
+  });
+
+  sourceToggle.addEventListener("click", toggleSource);
 
   syncCount();
   syncRunButton();
