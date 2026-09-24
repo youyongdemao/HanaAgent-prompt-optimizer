@@ -1340,3 +1340,29 @@ body[data-color-mode="dark"] .po-error,
   flex: none;
   white-space: nowrap;
 }
+/* ── 标题行里那两栏（版本编号 / 原文链条）跟着标题走 ──
+   父级是 space-between：只要自己不去抢剩余空间，剩下的就全给字数，
+   编号与链条也就紧贴在标题后面，不会跟标题隔着半行空白。 */
+.po-pane-head .po-scroller {
+  flex: 0 1 auto;
+}
+
+/* ── 滚动箭头：不能滚的时候不占位 ──
+   它本来就是透明的 18px 方块，占着位置就成了「初版」和「1」之间那段空白；
+   右栏链条也因此被推离左边缘，跟左栏标题对不齐。哪边真能滚，哪边才把宽度让出来。
+   壳子自己的 gap 一并收成 0：箭头不占位时，里面那栏的左边缘就是壳子的左边缘。 */
+.po-scroller {
+  gap: 0;
+}
+
+.po-scroll-btn {
+  width: 0;
+  padding: 0;
+  overflow: hidden;
+  transition: width .15s, opacity .15s, background-color .15s, color .15s;
+}
+
+.po-scroller.can-left .po-scroll-btn.po-scroll-left,
+.po-scroller.can-right .po-scroll-btn.po-scroll-right {
+  width: 18px;
+}
