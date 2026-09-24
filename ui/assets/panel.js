@@ -231,7 +231,7 @@ function render() {
       <label class="po-label" for="po-input">
         <span>基础提示词</span>
         <span class="po-label-right">
-          <span class="po-kbd" title="光标在输入框里时，按 Ctrl + Enter 直接优化">Ctrl + Enter</span>
+          <span class="po-kbd" title="Enter 直接优化，Shift + Enter 换行">Enter 优化</span>
           <span id="po-count" class="po-count">0 字</span>
         </span>
       </label>
@@ -713,7 +713,9 @@ function render() {
 
   inputEl.addEventListener("input", syncCount);
   inputEl.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+    // 聊天框那套：Enter 直接优化，Shift + Enter 换行；
+    // isComposing 是输入法选词那一回车，不能当成提交
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
       void runStream("");
     }
@@ -760,9 +762,9 @@ function render() {
 
   reviseLeft.addEventListener("click", () => runRevise("left"));
   reviseRight.addEventListener("click", () => runRevise("right"));
-  // 多行输入：Enter 换行，Ctrl/Cmd + Enter 才是执行
+  // 与基础提示词一致：Enter 执行，Shift + Enter 换行
   reviseEl.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
       runRevise("left");
     }
