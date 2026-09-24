@@ -329,11 +329,13 @@ function render() {
   // 本轮优化用的原文：既是长度对比的基准，也是「原文对照」展示的内容
   let sourceText = "";
   // 一次原文可以产出多个版本（「再来一版」追加），当前看的是哪一个
-  // 版本链条：每版记住它怎么来的（label）；左边固定显示最新一版，右边显示选中的那一版
-  let versions = [];
-  let inspecting = null; // 右栏显示哪一版：null = 原文，数字 = 版本下标
-  // 左栏显示哪一版：null = 跟着最新一版走，数字 = 固定看那一版
-  let viewing = null;
+  // 两层版本模型：
+  //   大版本（branches）= 一次「带了新要求」的改动，链条上一节，标题就是那次的要求；
+  //   小版本（branch.items）= 同一要求下的多次重写（左栏 1/2/3 切换，右侧「+」再重写一次）。
+  let branches = []; // [{ label, detail, items: [{ text, assistant }] }]
+  let activeBranch = 0; // 左栏看哪一大版本
+  let activeItem = 0; // 左栏看该大版本下的哪一次
+  let inspecting = null; // 右栏：null = 原文；否则 { branch, item }
   // 勾选的改法（可多选）：点「改」时和手写的要求合并成一条
   const pickedFixes = new Set();
   // 卡片只负责用：清单从设置页配好的那份读（同一份本机配置）
@@ -398,26 +400,38 @@ function render() {
     });
   };
 
-  /** 左边永远是最新一版 */
-  const latestVersion = () => versions[versions.length - 1] || null;
+  /** 最后一个大版本 / 某个大版本的最后一次重写 */
+  const latestBranch = () => branches[branches.length - 1] || null;
+  const latestItemOf = (branch) => (branch && branch.items.length ? branch.items[branch.items.length - 1] : null);
 
-  /** 流程链条：原文 → 每一版（节点上写它是怎么来的），点哪一版右边就显示哪一版 */
+  /** 左栏当前该显示的那一次 */
+  const currentItem = () => {
+    const branch = branches[activeBranch];
+    if (!branch) return null;
+    return branch.items[activeItem] || latestItemOf(branch);
+  };
+
+  /** 右栏当前该显示的那一次（null = 原文） */
+  const inspectedItem = () => {
+    if (!inspecting) return null;
+    const branch = branches[inspecting.branch];
+    if (!branch) return null;
+    return branch.items[inspecting.item] || latestItemOf(branch);
+  };
+
+  /** 流程链条：原文 → 每个大版本（节点标题就是那次的要求），点哪节就显示那节最新的一次重写 */
   const renderChain = () => {
     chainEl.replaceChildren();
 
-    const nodeLabel = (index) => {
-      if (index === null) return "原文";
-      if (index === 0) return "初版";
-      if (index === versions.length - 1) return "最新一版";
-      return `第 ${index + 1} 版`;
-    };
     const makeNode = (index) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "po-chain-node" + (inspecting === index ? " is-on" : "");
-      btn.textContent = nodeLabel(index);
-      // 这一版是怎么来的放悬停提示，不占标题位置
-      btn.title = index === null ? "最初写下的那段" : (versions[index] && versions[index].label) || nodeLabel(index);
+      const on =
+        index === null ? inspecting === null : !!inspecting && inspecting.branch === index;
+      btn.className = "po-chain-node" + (on ? " is-on" : "");
+      btn.textContent = index === null ? "原文" : branches[index].label;
+      // 完整要求放悬停提示，不占标题位置
+      btn.title = index === null ? "最初写下的那段" : branches[index].detail || branches[index].label;
       btn.addEventListener("click", () => inspectVersion(index));
       return btn;
     };
@@ -430,31 +444,31 @@ function render() {
     };
 
     chainEl.appendChild(makeNode(null));
-    versions.forEach((_, index) => {
+    branches.forEach((_, index) => {
       chainEl.appendChild(makeArrow());
       chainEl.appendChild(makeNode(index));
     });
   };
 
-  /** 左右两栏：左边最新一版，右边正在对照的那一版 */
+  /** 左右两栏：左边是当前大版本的某一次重写，右边是正在对照的那一次 */
   const renderPanes = () => {
-    const latest = latestVersion();
-    const viewItem = viewing === null ? latest : versions[viewing] || latest;
-    resultEl.value = viewItem ? viewItem.text : "";
+    const latest = latestItemOf(latestBranch());
+    const item = currentItem() || latest;
+    resultEl.value = item ? item.text : "";
     // 换版后从头看：先取消还在路上的「跟着滚到底」，再归位到顶部
     if (growRaf) {
       cancelAnimationFrame(growRaf);
       growRaf = 0;
     }
     resultEl.scrollTop = 0;
-    latestTagEl.textContent = viewing === null ? "最新一版" : `第 ${viewing + 1} 版`;
-    latestLenEl.textContent = viewItem ? `${viewItem.text.length} 字` : "";
+    // 左栏标题只留编号与「+」，不再写「最新一版」这类字样
+    latestTagEl.textContent = "";
+    latestLenEl.textContent = item ? `${item.text.length} 字` : "";
     lenInfoEl.textContent = latest ? `${sourceText.length} → ${latest.text.length} 字` : "";
     renderVersionTabs();
 
-    const onSource = inspecting === null;
-    const refItem = onSource ? null : versions[inspecting] || null;
-    const refText = onSource ? sourceText : refItem ? refItem.text : "";
+    const ref = inspectedItem();
+    const refText = inspecting === null ? sourceText : ref ? ref.text : "";
     refTextEl.textContent = refText;
     refLenEl.textContent = refText ? `${refText.length} 字` : "";
 
@@ -464,29 +478,49 @@ function render() {
     fitHeight();
   };
 
-  /** 左栏的版本编号：点了就切左栏看哪一版（「左改」也跟着它） */
+  /** 左栏的编号：当前大版本下的第几次重写（1/2/3…），末尾挂一个「+」再单纯重写一次 */
   const renderVersionTabs = () => {
     versionTabs.replaceChildren();
-    if (versions.length <= 1) return; // 只有一版不用翻
-    const current = viewing === null ? versions.length - 1 : viewing;
-    versions.forEach((_, index) => {
+    const branch = branches[activeBranch];
+    if (!branch) return;
+
+    const current = Math.min(activeItem, branch.items.length - 1);
+    branch.items.forEach((_, index) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "po-vtab" + (current === index ? " is-on" : "");
       btn.textContent = String(index + 1);
-      btn.title = `看第 ${index + 1} 版`;
+      btn.title = `看第 ${index + 1} 次重写`;
       btn.addEventListener("click", () => {
-        viewing = index === versions.length - 1 ? null : index;
+        activeItem = index;
         renderPanes();
         growResult();
       });
       versionTabs.appendChild(btn);
     });
+
+    // 「+」：这一大版本下不带新要求，单纯再重写一次（不在链条上留痕）
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "po-vtab po-vtab-add";
+    addBtn.textContent = "+";
+    addBtn.title = "不含新要求，再重写一次";
+    addBtn.addEventListener("click", () => {
+      if (streaming) return;
+      void runAgain();
+    });
+    versionTabs.appendChild(addBtn);
   };
 
-  /** 选一版来对照（null 表示原文） */
-  const inspectVersion = (index) => {
-    inspecting = index;
+  /** 选一大节来对照：右栏显示那一节里最新的一次重写（null 表示原文） */
+  const inspectVersion = (branchIndex) => {
+    if (branchIndex === null) {
+      inspecting = null;
+    } else {
+      const branch = branches[branchIndex];
+      if (!branch) return;
+      inspecting = { branch: branchIndex, item: Math.max(0, branch.items.length - 1) };
+    }
     renderPanes();
     growResult();
   };
@@ -558,7 +592,7 @@ function render() {
     return out;
   };
 
-  const runStream = async (revise = "", { labels = [] } = {}) => {
+  const runStream = async (revise = "", { labels = [], mode = "branch" } = {}) => {
     if (streaming) return;
     const text = inputEl.value.trim();
     if (!text) {
@@ -571,8 +605,9 @@ function render() {
       setError("还没有可修改的结果，先优化一次。");
       return;
     }
-    // 这次用了哪几个改法，成功时要记进溯源链条
+    // 这次用了哪几个改法 + 完整要求，成功时要记进链条
     const pendingLabels = isRevise ? labels : [];
+    const pendingDetail = isRevise ? revise : "";
 
     setError("");
     streaming = true;
@@ -580,9 +615,10 @@ function render() {
 
     if (!isRevise) {
       // 新的一轮：丢掉旧版本，换掉对比用的原文
-      versions = [];
+      branches = [];
+      activeBranch = 0;
+      activeItem = 0;
       inspecting = null;
-      viewing = null;
       sourceText = text;
       resultEl.value = "";
       renderPanes();
@@ -649,15 +685,37 @@ function render() {
               typeof event.optimized === "string" && event.optimized
                 ? event.optimized
                 : cleanStreaming(acc);
-            // 每一版都留痕：是改出来的（label = 改法名）还是另出一版
-            const label = isRevise
-              ? pendingLabels.length
+            const item = { text: finalText, assistant: event.assistant || null };
+            if (mode === "rewrite") {
+              // 同一要求下再重写一次：只加小版本，链条不动
+              const branch = branches[activeBranch];
+              if (branch) {
+                branch.items.push(item);
+                activeItem = branch.items.length - 1;
+              }
+            } else if (isRevise) {
+              // 带了新要求：记成新的大版本，标题就是这次的要求
+              const detail = pendingDetail || pendingLabels.join("、") || "手写要求";
+              const label = pendingLabels.length
                 ? pendingLabels.join("、")
-                : "手写要求"
-              : "初版";
-            versions.push({ text: finalText, assistant: event.assistant || null, label });
-            // 右边默认停在这一版的上一版，方便直接比
-            inspecting = versions.length >= 2 ? versions.length - 2 : null;
+                : detail.length > 10
+                  ? detail.slice(0, 10) + "…"
+                  : detail;
+              branches.push({ label, detail, items: [item] });
+              activeBranch = branches.length - 1;
+              activeItem = 0;
+              // 右栏默认停在上一个大版本的最新一次重写，方便直接比
+              const prev = branches[branches.length - 2];
+              inspecting = prev
+                ? { branch: branches.length - 2, item: Math.max(0, prev.items.length - 1) }
+                : null;
+            } else {
+              // 首轮优化：第一个大版本
+              branches.push({ label: "初版", detail: "从原文直接优化", items: [item] });
+              activeBranch = 0;
+              activeItem = 0;
+              inspecting = null;
+            }
             lastAssistant = event.assistant || null;
             lenInfoEl.textContent = `${sourceText.length} → ${finalText.length} 字`;
             renderPanes();
@@ -761,7 +819,7 @@ function render() {
     void runStream("");
   });
 
-  /** 「左改」基于左栏那一版，「右改」基于右栏那一版：动作名字自己说清基于谁 */
+  /** 「改左面」基于左栏那一次，「改右面」基于右栏那一次：两者都算带了新要求 → 新大版本 */
   const runRevise = (side) => {
     const labels = fixes.filter((item) => pickedFixes.has(item.id)).map((item) => item.label);
     const request = composeRevise();
@@ -769,18 +827,11 @@ function render() {
       reviseEl.focus();
       return;
     }
-    const base =
-      side === "right"
-        ? inspecting !== null
-          ? versions[inspecting]
-          : null
-        : viewing !== null
-          ? versions[viewing]
-          : latestVersion();
+    const base = side === "right" ? inspectedItem() : currentItem() || latestItemOf(latestBranch());
     if (!base || !base.assistant) {
       setError(
         side === "right"
-          ? "右侧这一版没有可继续改的底稿，先点链条切到某一版。"
+          ? "右面这一版没有可继续改的底稿，先点链条切到某一节。"
           : "还没有可修改的结果，先优化一次。",
       );
       return;
@@ -789,7 +840,18 @@ function render() {
     // 先把这条回显到输入框，让用户看清这次到底要发什么
     reviseEl.value = request;
     autoGrow(reviseEl);
-    void runStream(request, { labels }).finally(clearPicked);
+    void runStream(request, { labels, mode: "branch" }).finally(clearPicked);
+  };
+
+  /** 「+」：不带新要求，在当前大版本上再重写一次，记成小版本 */
+  const runAgain = () => {
+    const base = latestItemOf(branches[activeBranch]) || currentItem();
+    if (!base || !base.assistant) {
+      setError("这一版还没有可重写的底稿。");
+      return;
+    }
+    lastAssistant = base.assistant;
+    void runStream("按同样的要求再写一版", { labels: [], mode: "rewrite" }).finally(clearPicked);
   };
 
   reviseLeft.addEventListener("click", () => runRevise("left"));
@@ -818,7 +880,9 @@ function render() {
     resultWrap.hidden = true;
     lastAssistant = null;
     sourceText = "";
-    versions = [];
+    branches = [];
+    activeBranch = 0;
+    activeItem = 0;
     inspecting = null;
     renderPanes();
     setError("");
@@ -826,16 +890,16 @@ function render() {
     inputEl.focus();
   });
 
-  // 左格：最新版本（不是左栏正在显示的那版，左栏可以翻到旧版）
+  // 左格：最新那一次重写（不等同于左栏正在显示的那次，左栏可以翻到旧的）
   copyBtn.addEventListener("click", () => {
-    const latest = latestVersion();
+    const latest = latestItemOf(latestBranch());
     if (!latest) return;
     void copyText(latest.text, "最新版本");
   });
 
   // 右格：右栏正在对照的那一版
   copyPickedBtn.addEventListener("click", () => {
-    const item = inspecting === null ? null : versions[inspecting];
+    const item = inspectedItem();
     if (!item) {
       toast("右栏停在原文，先点链条切到某一版", "warning");
       return;
