@@ -454,8 +454,19 @@ function render() {
     };
 
     chainEl.appendChild(makeNode(null));
-    branches.forEach((_, index) => {
-      chainEl.appendChild(makeArrow());
+    branches.forEach((branch, index) => {
+      if (branch.from) {
+        // 分叉：换一行、缩进一级，用 ↳ 表示它从别处接过来
+        const brk = document.createElement("span");
+        brk.className = "po-chain-break";
+        chainEl.appendChild(brk);
+        const fork = document.createElement("span");
+        fork.className = "po-chain-fork";
+        fork.textContent = "↳";
+        chainEl.appendChild(fork);
+      } else {
+        chainEl.appendChild(makeArrow());
+      }
       chainEl.appendChild(makeNode(index));
     });
   };
@@ -736,11 +747,19 @@ function render() {
                 : detail.length > 10
                   ? detail.slice(0, 10) + "…"
                   : detail;
+              // 分叉来源：从哪一大版本的哪一次小版本长出来的。
+              // 限一级：若来源本身已经是分叉出来的，就挂回它所在的主干。
+              const forkBranch = branches[activeBranch];
+              const from =
+                forkBranch && forkBranch.from
+                  ? { branch: forkBranch.from.branch, item: forkBranch.from.item }
+                  : { branch: activeBranch, item: activeItem };
               branches.push({
                 label,
                 detail,
                 labels: pendingLabels.slice(),
                 base: startAssistant,
+                from,
                 items: [item],
               });
               activeBranch = branches.length - 1;
@@ -752,7 +771,7 @@ function render() {
                 : null;
             } else {
               // 首轮优化：第一个大版本
-              branches.push({ label: "初版", detail: "从原文直接优化", labels: [], base: null, items: [item] });
+              branches.push({ label: "初版", detail: "从原文直接优化", labels: [], base: null, from: null, items: [item] });
               activeBranch = 0;
               activeItem = 0;
               inspecting = null;
