@@ -72,7 +72,7 @@ function renderFx() {
   if (!fixes.length) {
     const empty = document.createElement("p");
     empty.className = "fx-empty";
-    empty.textContent = "清单是空的，卡片上不会出现任何提示词。";
+    empty.textContent = "这里还什么都没有~";
     list.appendChild(empty);
   }
 
