@@ -747,13 +747,15 @@ function render() {
                 : detail.length > 10
                   ? detail.slice(0, 10) + "…"
                   : detail;
-              // 分叉来源：从哪一大版本的哪一次小版本长出来的。
-              // 限一级：若来源本身已经是分叉出来的，就挂回它所在的主干。
+              // 顺序推进（在当前最新那一节上继续改）不算分叉；从更早的节上改才是一次分叉。
+              // 限一级：来源本身已是分叉的话，挂回它所在的主干。
               const forkBranch = branches[activeBranch];
-              const from =
-                forkBranch && forkBranch.from
+              const isFork = activeBranch !== branches.length - 1 || Boolean(forkBranch && forkBranch.from);
+              const from = isFork
+                ? forkBranch && forkBranch.from
                   ? { branch: forkBranch.from.branch, item: forkBranch.from.item }
-                  : { branch: activeBranch, item: activeItem };
+                  : { branch: activeBranch, item: activeItem }
+                : null;
               branches.push({
                 label,
                 detail,
