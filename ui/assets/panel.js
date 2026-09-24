@@ -884,7 +884,11 @@ function render() {
   const runRevise = (side) => {
     const labels = fixes.filter((item) => pickedFixes.has(item.id)).map((item) => item.label);
     const request = composeRevise();
-    const base = side === "right" ? inspectedItem() : currentItem() || latestItemOf(latestBranch());
+    // 右栏停在原文时（没有可改的底稿）退回左栏那一版，不打断操作
+    const base =
+      side === "right"
+        ? inspectedItem() || currentItem() || latestItemOf(latestBranch())
+        : currentItem() || latestItemOf(latestBranch());
     if (!base || !base.assistant) {
       setError(
         side === "right"
