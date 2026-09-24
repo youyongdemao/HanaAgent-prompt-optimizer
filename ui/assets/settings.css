@@ -365,8 +365,6 @@ body {
 
 .fx-row:last-child { border-bottom: 0; }
 
-.fx-item-main { display: grid; gap: 1px; min-width: 0; }
-
 /* 输入框当文本用：平时不画框，指上去或聚焦才浮出来 */
 .fx-input {
   border: 1px solid transparent;
