@@ -362,3 +362,68 @@ body {
   font-size: 12px;
   color: var(--text-muted, var(--text));
 }
+/* ── 提示词清单：一条一行（提示词 + 解释补充 + 勾选 + 删除） ── */
+.fx-list { display: grid; gap: 6px; }
+
+.fx-row {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-card) 45%, transparent);
+}
+
+.fx-row.is-on {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.fx-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: .72;
+}
+
+.fx-row.is-on .fx-check { opacity: 1; }
+
+.st-btn-accent {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: color-mix(in srgb, var(--accent) 85%, var(--text));
+}
+/* ── 提示词清单：跟「关于」的子项说同一种语言 ──
+   细线分隔、无圆角、无卡片底；一行内：× 最左，勾选框最右。 */
+.fx-list {
+  display: grid;
+  gap: 0;
+}
+
+.fx-row {
+  display: grid;
+  grid-template-columns: auto 118px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 2px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+  border-radius: 0;
+  background: none;
+}
+
+.fx-row:last-child {
+  border-bottom: 0;
+}
+
+.fx-check {
+  justify-self: end;
+}
+
+.fx-row.is-on .fx-check {
+  opacity: 1;
+}

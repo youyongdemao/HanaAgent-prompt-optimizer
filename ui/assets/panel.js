@@ -3,7 +3,7 @@
 // 应用自己的后端接口走 app-api.js（/api/apps/prompt-optimizer/routes/）。
 import { hana } from "./sdk.js";
 import { apiUrl, appHeaders } from "./app-api.js";
-import { DEFAULT_FIXES, loadFixes } from "./fixes.js";
+import { DEFAULT_FIXES, loadActiveFixes } from "./fixes.js";
 
 async function toast(message, type = "info") {
   try {
@@ -358,7 +358,7 @@ function render() {
   // 勾选的改法（可多选）：点「改」时和手写的要求合并成一条
   const pickedFixes = new Set();
   // 卡片只负责用：清单从设置页配好的那份读（同一份本机配置）
-  let fixes = loadFixes();
+  let fixes = loadActiveFixes();
 
   // 高度上报：只在真的变了（差 8px 以上）时发一次，且内容变短也要跟着缩，
   // 否则卡片底下会空一大片。生成期间不走这里（那时高度一直变，反复叫醒宿主会把滚动打回顶部）。

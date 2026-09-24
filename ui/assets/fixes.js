@@ -25,6 +25,8 @@ export const PRESET_FIXES = [
   { id: "english", label: "转成英文", prompt: "把提示词改成英文，结构与要求保持不变" },
 ];
 
+const DEFAULT_IDS = new Set(DEFAULT_FIXES.map((item) => item.id));
+
 function sanitize(list) {
   if (!Array.isArray(list)) return null;
   const out = [];
@@ -37,19 +39,22 @@ function sanitize(list) {
       id: typeof item.id === "string" && item.id ? item.id : "f" + out.length,
       label: (label || prompt).slice(0, 12),
       prompt: prompt || label,
+      // 没记过勾选状态的看出厂默认：默认那几条勾上，其余备选默认不勾
+      on: typeof item.on === "boolean" ? item.on : DEFAULT_IDS.has(item.id),
     });
   }
   return out.length ? out : null;
 }
 
-/** 读本机配置；没配过或读不动就用默认六个 */
+/** 读本机配置；没配过或读不动就用默认六个（过一遍 sanitize，把勾选状态补齐） */
 export function loadFixes() {
+  const fallback = () => sanitize(DEFAULT_FIXES) ?? DEFAULT_FIXES.map((item) => ({ ...item }));
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_FIXES.map((item) => ({ ...item }));
-    return sanitize(JSON.parse(raw)) ?? DEFAULT_FIXES.map((item) => ({ ...item }));
+    if (!raw) return fallback();
+    return sanitize(JSON.parse(raw)) ?? fallback();
   } catch {
-    return DEFAULT_FIXES.map((item) => ({ ...item }));
+    return fallback();
   }
 }
 
@@ -59,6 +64,11 @@ export function saveFixes(list) {
   } catch {
     /* 存不了也不影响这一次使用 */
   }
+}
+
+/** 卡片只用在设置页勾上的那些 */
+export function loadActiveFixes() {
+  return loadFixes().filter((item) => item.on !== false);
 }
 
 /** 某个预设现在是否已经在清单里 */

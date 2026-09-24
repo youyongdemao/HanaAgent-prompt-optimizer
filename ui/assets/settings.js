@@ -6,7 +6,6 @@ import { apiFetch } from "./app-api.js";
 import { openUpdateNotice } from "./update-notice.js";
 import { initHostThemeSync } from "./theme-sync.js";
 import { loadFixes, saveFixes, DEFAULT_FIXES, PRESET_FIXES, hasFix, newFixId } from "./fixes.js";
-
 hana.ready();
 
 // 主题跟随宿主窗口：与其它页面共用同一套，不各自读 iframe URL 里的初值
@@ -41,16 +40,27 @@ function setFxStatus(text, cls = "") {
   fxStatus.className = "st-status" + (cls ? " " + cls : "");
 }
 
+/** 勾选上限：卡片那一排摆不下更多了 */
+const MAX_ON = 8;
+
+let dirty = false;
+
+function markDirty() {
+  dirty = true;
+  setFxStatus("有未保存的修改", "warn");
+}
+
 function persist(note) {
   saveFixes(fixes);
   if (note) setFxStatus(note, "ok");
 }
 
-function makeInput(value, className, title, onCommit) {
+function makeInput(value, className, placeholder, title, onCommit) {
   const input = document.createElement("input");
   input.className = className;
   input.type = "text";
   input.value = value;
+  input.placeholder = placeholder;
   input.title = title;
   input.spellcheck = false;
   input.addEventListener("change", onCommit(input));
@@ -58,34 +68,50 @@ function makeInput(value, className, title, onCommit) {
 }
 
 function renderFx() {
-  // 当前清单：一行一个改法，「按钮上的字」和「勾上后让模型做什么」都能直接改
+  // 一张清单管全部：前面是提示词，后面是解释补充（可空），右边勾选与删除
   const list = $("fxList");
   list.replaceChildren();
 
   if (!fixes.length) {
     const empty = document.createElement("p");
     empty.className = "fx-empty";
-    empty.textContent = "清单是空的，卡片上不会出现任何改法。";
+    empty.textContent = "清单是空的，卡片上不会出现任何提示词。";
     list.appendChild(empty);
   }
 
   fixes.forEach((fix, index) => {
     const row = document.createElement("div");
-    row.className = "fx-row";
+    row.className = "fx-row" + (fix.on ? " is-on" : "");
 
-    const labelInput = makeInput(fix.label, "fx-input fx-input-label", "按钮上的字", (input) => () => {
-      const next = input.value.trim() || fixes[index].prompt.slice(0, 12);
+    const labelInput = makeInput(fix.label, "fx-input fx-input-label", "请输入提示词", "显示在按钮上的字", (input) => () => {
+      const next = input.value.trim() || fixes[index].label;
       fixes[index] = { ...fixes[index], label: next };
       input.value = next;
-      persist("已保存");
+      markDirty();
     });
 
-    const promptInput = makeInput(fix.prompt, "fx-input", "勾上后让模型做什么", (input) => () => {
-      const next = input.value.trim() || fixes[index].prompt;
-      fixes[index] = { ...fixes[index], prompt: next };
-      input.value = next;
-      persist("已保存");
+    const promptInput = makeInput(fix.prompt, "fx-input", "解释补充（可空）", "给模型的解释补充；留空就直接把提示词本身交给模型", (input) => () => {
+      fixes[index] = { ...fixes[index], prompt: input.value.trim() };
+      markDirty();
     });
+
+    const check = document.createElement("label");
+    check.className = "fx-check";
+    check.title = `上卡片的提示词，最多同时勾 ${MAX_ON} 项`;
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = !!fix.on;
+    box.addEventListener("change", () => {
+      if (box.checked && fixes.filter((f) => f.on).length >= MAX_ON) {
+        box.checked = false;
+        setFxStatus(`最多同时勾 ${MAX_ON} 项`, "err");
+        return;
+      }
+      fixes[index] = { ...fixes[index], on: box.checked };
+      row.classList.toggle("is-on", box.checked);
+      markDirty();
+    });
+    check.append(box);
 
     const del = document.createElement("button");
     del.type = "button";
@@ -94,54 +120,42 @@ function renderFx() {
     del.title = "从清单里移除";
     del.addEventListener("click", () => {
       fixes = fixes.filter((_, i) => i !== index);
-      persist("已移除");
+      markDirty();
       renderFx();
     });
 
-    row.append(labelInput, promptInput, del);
+    row.append(del, labelInput, promptInput, check);
     list.appendChild(row);
   });
-
-  // 可选预设：已经在清单里的置灰，避免重复加
-  const presets = $("fxPresets");
-  presets.replaceChildren();
-  for (const preset of PRESET_FIXES) {
-    const already = hasFix(fixes, preset.id);
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "fx-preset" + (already ? " is-in" : "");
-    btn.textContent = preset.label;
-    btn.title = preset.prompt;
-    btn.disabled = already;
-    btn.addEventListener("click", () => {
-      if (hasFix(fixes, preset.id)) return;
-      fixes = fixes.concat({ ...preset });
-      persist("已加入");
-      renderFx();
-    });
-    presets.appendChild(btn);
-  }
 }
 
 $("fxAdd")?.addEventListener("click", () => {
   const label = $("fxLabel").value.trim();
   const prompt = $("fxPrompt").value.trim();
-  if (!prompt) {
-    setFxStatus("「勾上后让模型做什么」不能空着", "err");
-    $("fxPrompt").focus();
+  if (!label) {
+    setFxStatus("「请输入提示词」不能空着", "err");
+    $("fxLabel").focus();
     return;
   }
-  fixes = fixes.concat({ id: newFixId(), label: label || prompt.slice(0, 12), prompt });
+  // 手加的一条插在列表第一条；解释补充留空就直接用提示词本身，不做额外改写
+  const on = fixes.filter((f) => f.on).length < MAX_ON;
+  fixes = [{ id: newFixId(), label, prompt: prompt || label, on }, ...fixes];
   $("fxLabel").value = "";
   $("fxPrompt").value = "";
-  persist("已加入");
+  markDirty();
   renderFx();
 });
 
 $("fxReset")?.addEventListener("click", () => {
   fixes = DEFAULT_FIXES.map((item) => ({ ...item }));
-  persist("已恢复默认六个");
+  markDirty();
   renderFx();
+});
+
+$("fxSave")?.addEventListener("click", () => {
+  saveFixes(fixes);
+  dirty = false;
+  setFxStatus("已保存", "ok");
 });
 
 renderFx();
