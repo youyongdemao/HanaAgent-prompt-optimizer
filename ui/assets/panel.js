@@ -238,8 +238,8 @@ function render() {
       <textarea id="po-input" class="po-input" spellcheck="false"
         placeholder="例如：帮我讲清楚 PID 里的积分项到底在干嘛"></textarea>
 
-      <input id="po-extra" class="po-extra" type="text"
-        placeholder="可选：补充要求，如「面向零基础」「控制在 300 字内」">
+      <textarea id="po-extra" class="po-extra" rows="1" spellcheck="false"
+        placeholder="可选：补充要求，如「面向零基础」「控制在 300 字内」"></textarea>
 
       <div class="po-actions">
         <button id="po-run" class="po-btn primary" type="button"><span class="po-btn-tx" id="po-run-tx">优化</span></button>
@@ -257,7 +257,8 @@ function render() {
         <div class="po-compare">
           <div class="po-pane">
             <div class="po-pane-head">
-              <span class="po-pane-tag">最新一版</span>
+              <span class="po-pane-tag" id="po-latest-tag">最新一版</span>
+              <span class="po-version-tabs" id="po-version-tabs"></span>
               <span class="po-pane-len" id="po-latest-len"></span>
             </div>
             <textarea id="po-result" class="po-result" spellcheck="false" readonly></textarea>
@@ -272,13 +273,15 @@ function render() {
           </div>
         </div>
 
-        <div class="po-revise">
-          <input id="po-revise" class="po-revise-input" type="text" spellcheck="false"
-            placeholder="不满意？说要改哪儿；也可以勾下面的方向，可多选">
-          <button id="po-base-toggle" class="po-base-toggle" type="button" title="基于哪一版继续改">
-            <span id="po-base-text">最新版</span>
+        <textarea id="po-revise" class="po-revise-input" rows="1" spellcheck="false"
+          placeholder="不满意？说要改哪儿；也可以勾下面的方向，可多选"></textarea>
+        <div class="po-revise-row">
+          <button id="po-revise-left" class="po-btn" type="button" title="基于左侧这一版继续改">
+            <span class="po-btn-tx">左改</span>
           </button>
-          <button id="po-revise-run" class="po-btn" type="button"><span class="po-btn-tx">改</span></button>
+          <button id="po-revise-right" class="po-btn" type="button" title="基于右侧这一版继续改">
+            <span class="po-btn-tx">右改</span>
+          </button>
         </div>
         <div class="po-revise-quick" id="po-revise-quick"></div>
 
@@ -305,15 +308,16 @@ function render() {
   const copyBtn = document.getElementById("po-copy");
   const backBtn = document.getElementById("po-back");
   const reviseEl = document.getElementById("po-revise");
-  const reviseBtn = document.getElementById("po-revise-run");
   const reviseQuick = document.getElementById("po-revise-quick");
   const resultTitleEl = document.getElementById("po-result-title");
   const chainEl = document.getElementById("po-chain");
   const refTextEl = document.getElementById("po-ref-text");
   const refLenEl = document.getElementById("po-ref-len");
   const latestLenEl = document.getElementById("po-latest-len");
-  const baseToggle = document.getElementById("po-base-toggle");
-  const baseText = document.getElementById("po-base-text");
+  const latestTagEl = document.getElementById("po-latest-tag");
+  const versionTabs = document.getElementById("po-version-tabs");
+  const reviseLeft = document.getElementById("po-revise-left");
+  const reviseRight = document.getElementById("po-revise-right");
   const againBtn = document.getElementById("po-again");
 
   let style = "general";
@@ -326,8 +330,9 @@ function render() {
   // 一次原文可以产出多个版本（「再来一版」追加），当前看的是哪一个
   // 版本链条：每版记住它怎么来的（label）；左边固定显示最新一版，右边显示选中的那一版
   let versions = [];
-  let inspecting = null; // null = 原文；数字 = 该版本下标
-  let reviseBase = "latest"; // "latest" | "ref"
+  let inspecting = null; // 右栏显示哪一版：null = 原文，数字 = 版本下标
+  // 左栏显示哪一版：null = 跟着最新一版走，数字 = 固定看那一版
+  let viewing = null;
   // 勾选的改法（可多选）：点「改」时和手写的要求合并成一条
   const pickedFixes = new Set();
   // 卡片只负责用：清单从设置页配好的那份读（同一份本机配置）
@@ -357,13 +362,17 @@ function render() {
     fitHeight();
   };
 
+  /** 一行起、六行封顶的自动增高（基础提示词、补充要求、继续改都用它） */
+  const autoGrow = (el) => {
+    el.style.height = "auto";
+    const line = parseFloat(getComputedStyle(el).lineHeight) || 19;
+    const pad = 22;
+    el.style.height = `${Math.min(line * 6 + pad, Math.max(line + pad, el.scrollHeight))}px`;
+  };
+
   const syncCount = () => {
     countEl.textContent = `${inputEl.value.length} 字`;
-    // 一行起、六行封顶，再多就在框里滚
-    inputEl.style.height = "auto";
-    const line = parseFloat(getComputedStyle(inputEl).lineHeight) || 19;
-    const pad = 22;
-    inputEl.style.height = `${Math.min(line * 6 + pad, Math.max(line + pad, inputEl.scrollHeight))}px`;
+    autoGrow(inputEl);
     fitHeight();
   };
 
@@ -390,12 +399,6 @@ function render() {
 
   /** 左边永远是最新一版 */
   const latestVersion = () => versions[versions.length - 1] || null;
-
-  /** 「继续改」的基准：默认最新一版，也可以选右侧正在看的那一版 */
-  const baseVersion = () => {
-    if (reviseBase === "ref" && inspecting !== null) return versions[inspecting] || null;
-    return latestVersion();
-  };
 
   /** 流程链条：原文 → 每一版（节点上写它是怎么来的），点哪一版右边就显示哪一版 */
   const renderChain = () => {
@@ -435,15 +438,18 @@ function render() {
   /** 左右两栏：左边最新一版，右边正在对照的那一版 */
   const renderPanes = () => {
     const latest = latestVersion();
-    resultEl.value = latest ? latest.text : "";
+    const viewItem = viewing === null ? latest : versions[viewing] || latest;
+    resultEl.value = viewItem ? viewItem.text : "";
     // 换版后从头看：先取消还在路上的「跟着滚到底」，再归位到顶部
     if (growRaf) {
       cancelAnimationFrame(growRaf);
       growRaf = 0;
     }
     resultEl.scrollTop = 0;
-    latestLenEl.textContent = latest ? `${latest.text.length} 字` : "";
+    latestTagEl.textContent = viewing === null ? "最新一版" : `第 ${viewing + 1} 版`;
+    latestLenEl.textContent = viewItem ? `${viewItem.text.length} 字` : "";
     lenInfoEl.textContent = latest ? `${sourceText.length} → ${latest.text.length} 字` : "";
+    renderVersionTabs();
 
     const onSource = inspecting === null;
     const refItem = onSource ? null : versions[inspecting] || null;
@@ -457,25 +463,30 @@ function render() {
     fitHeight();
   };
 
-  /** 基准开关：右侧停在原文时没有可改的模型消息，就把它禁掉 */
-  const syncBaseToggle = () => {
-    const usable = inspecting !== null && !!versions[inspecting];
-    if (!usable && reviseBase === "ref") reviseBase = "latest";
-    baseToggle.disabled = !usable;
-    baseText.textContent = reviseBase === "ref" ? "右侧这版" : "最新版";
-    baseToggle.classList.toggle("is-ref", reviseBase === "ref");
-    baseToggle.title = usable
-      ? reviseBase === "ref"
-        ? "基于右栏这一版继续改"
-        : "基于最新一版继续改"
-      : "只有一版时没得选";
+  /** 左栏的版本编号：点了就切左栏看哪一版（「左改」也跟着它） */
+  const renderVersionTabs = () => {
+    versionTabs.replaceChildren();
+    if (versions.length <= 1) return; // 只有一版不用翻
+    const current = viewing === null ? versions.length - 1 : viewing;
+    versions.forEach((_, index) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "po-vtab" + (current === index ? " is-on" : "");
+      btn.textContent = String(index + 1);
+      btn.title = `看第 ${index + 1} 版`;
+      btn.addEventListener("click", () => {
+        viewing = index === versions.length - 1 ? null : index;
+        renderPanes();
+        growResult();
+      });
+      versionTabs.appendChild(btn);
+    });
   };
 
   /** 选一版来对照（null 表示原文） */
   const inspectVersion = (index) => {
     inspecting = index;
     renderPanes();
-    syncBaseToggle();
     growResult();
   };
 
@@ -529,7 +540,8 @@ function render() {
     runBtn.disabled = false;
     runBtn.classList.toggle("is-stop", streaming);
     runTx.textContent = streaming ? "停止" : "优化";
-    reviseBtn.disabled = streaming;
+    reviseLeft.disabled = streaming;
+    reviseRight.disabled = streaming;
     clearBtn.disabled = streaming;
   };
 
@@ -570,11 +582,11 @@ function render() {
       if (!append) {
         versions = [];
         inspecting = null;
+        viewing = null;
       }
       sourceText = text;
       resultEl.value = "";
       renderPanes();
-      syncBaseToggle();
     }
     resultWrap.hidden = false;
     resultTitleEl.textContent = isRevise ? "修改中" : "生成中";
@@ -652,7 +664,6 @@ function render() {
             lastAssistant = event.assistant || null;
             lenInfoEl.textContent = `${sourceText.length} → ${finalText.length} 字`;
             renderPanes();
-            syncBaseToggle();
             growResult();
           } else if (event.type === "error") {
             throw new Error(event.message || "生成失败。");
@@ -727,29 +738,44 @@ function render() {
     void runStream("");
   });
 
-  reviseBtn.addEventListener("click", () => {
-    // 勾了哪几个改法，进溯源链条；手写的要求不占链条位置
+  /** 「左改」基于左栏那一版，「右改」基于右栏那一版：动作名字自己说清基于谁 */
+  const runRevise = (side) => {
     const labels = fixes.filter((item) => pickedFixes.has(item.id)).map((item) => item.label);
     const request = composeRevise();
     if (!request) {
       reviseEl.focus();
       return;
     }
-    // 基准版决定这次改的是谁：最新一版，还是右侧正在看的那一版
-    const base = baseVersion();
+    const base =
+      side === "right"
+        ? inspecting !== null
+          ? versions[inspecting]
+          : null
+        : viewing !== null
+          ? versions[viewing]
+          : latestVersion();
     if (!base || !base.assistant) {
-      setError("这一版没有可继续改的底稿，换成「最新版」再试。");
+      setError(
+        side === "right"
+          ? "右侧这一版没有可继续改的底稿，先点链条切到某一版。"
+          : "还没有可修改的结果，先优化一次。",
+      );
       return;
     }
     lastAssistant = base.assistant;
     // 先把这条回显到输入框，让用户看清这次到底要发什么
     reviseEl.value = request;
+    autoGrow(reviseEl);
     void runStream(request, { labels }).finally(clearPicked);
-  });
+  };
+
+  reviseLeft.addEventListener("click", () => runRevise("left"));
+  reviseRight.addEventListener("click", () => runRevise("right"));
+  // 多行输入：Enter 换行，Ctrl/Cmd + Enter 才是执行
   reviseEl.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      reviseBtn.click();
+      runRevise("left");
     }
   });
 
@@ -772,7 +798,6 @@ function render() {
     versions = [];
     inspecting = null;
     renderPanes();
-    syncBaseToggle();
     setError("");
     syncCount();
     inputEl.focus();
@@ -793,19 +818,13 @@ function render() {
     versions = [];
     inspecting = null;
     renderPanes();
-    syncBaseToggle();
     setError("");
     syncCount();
     inputEl.focus();
     toast("已放回输入框，可以改完再优化", "success");
   });
 
-  // 基准开关：点一下在「最新版」和「右侧这版」之间切（右栏停在原文时不可用）
-  baseToggle.addEventListener("click", () => {
-    if (baseToggle.disabled) return;
-    reviseBase = reviseBase === "ref" ? "latest" : "ref";
-    syncBaseToggle();
-  });
+  // 基准开关那段已删：改成「左改 / 右改」两个动作按钮
 
   // 再来一版：同一段原文另出一版
   againBtn.addEventListener("click", () => {
@@ -813,9 +832,16 @@ function render() {
     void runStream("", { append: true });
   });
 
+  // 补充要求与继续改都是多行框，跟着内容长（一行起、六行封顶）
+  for (const el of [extraEl, reviseEl]) {
+    el.addEventListener("input", () => autoGrow(el));
+    autoGrow(el);
+  }
+
   syncCount();
   syncRunButton();
   renderFixLists();
+  renderVersionTabs();
   requestAnimationFrame(fitHeight);
 }
 

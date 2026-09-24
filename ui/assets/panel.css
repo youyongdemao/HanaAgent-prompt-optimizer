@@ -869,3 +869,63 @@ body[data-color-mode="dark"] .po-error,
   flex: 1;
   min-width: 0;
 }
+/* ── 左栏的版本编号（1/2/3…，点了切左栏看哪一版） ── */
+.po-version-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 2px;
+}
+
+.po-vtab {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  border-radius: 5px;
+  background: none;
+  color: var(--po-ink-faint);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color .16s, border-color .16s, background .16s;
+}
+
+.po-vtab:hover {
+  color: var(--po-ink-soft);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.po-vtab.is-on {
+  color: color-mix(in srgb, var(--accent) 45%, var(--po-ink));
+  border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* ── 左改 / 右改：一组两个，各占一半 ── */
+.po-revise-row {
+  display: flex;
+  gap: 8px;
+}
+
+.po-revise-row .po-btn {
+  flex: 1;
+  justify-content: center;
+}
+
+/* ── 多行输入（补充要求 / 继续改）：一行起、六行封顶 ── */
+.po-extra,
+.po-revise-input {
+  width: 100%;
+  resize: none;
+  min-height: calc(1.65em + 22px);
+  max-height: calc(1.65em * 6 + 22px);
+  overflow-y: auto;
+}
+
+/* 左栏字数靠右 */
+.po-pane-head .po-pane-len {
+  margin-left: auto;
+}
