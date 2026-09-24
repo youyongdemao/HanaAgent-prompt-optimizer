@@ -758,12 +758,17 @@ function render() {
     }
     suggestTimer = setTimeout(async () => {
       try {
-        const res = await fetch(apiUrl("/suggest-fixes"), {
+        // 注意路径不要带开头斜杠：宿主会把 /api/apps/<id>/routes 之后的部分切给应用，
+        // 多一个斜杠就变成 //suggest-fixes，Hono 匹配不上，静默 404。
+        const res = await fetch(apiUrl("suggest-fixes"), {
           method: "POST",
           headers: appHeaders({ "content-type": "application/json" }),
           body: JSON.stringify({ text }),
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.warn("[prompt-optimizer] 取现推方向失败", res.status);
+          return;
+        }
         const data = await res.json().catch(() => null);
         if (seq !== suggestSeq) return; // 期间又改了输入，这次结果作废
         suggestedItems = Array.isArray(data?.items) ? data.items : [];

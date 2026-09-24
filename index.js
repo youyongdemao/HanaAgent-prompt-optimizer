@@ -124,8 +124,13 @@ export default defineApp(async (sdk) => {
           temperature: 0.5,
           maxTokens: 400,
         });
-        return c.json({ ok: true, items: parseSuggestedFixes(raw) });
+        const items = parseSuggestedFixes(raw);
+        // 这条路由曾经因为客户端多写了一个斜杠而一直 404，没人看得到它到底跑没跑。
+        // 留一行日志：出问题时能直接分清是路由没打到、还是模型没给出可解析的 JSON。
+        await sdk.logger.info(`suggest-fixes: ${items ? items.length : 0} 条（输入 ${text.length} 字）`);
+        return c.json({ ok: true, items });
       } catch (err) {
+        await sdk.logger.info(`suggest-fixes 失败: ${String(err?.message || err)}`);
         return c.json({ ok: false, error: "MODEL_FAILED", message: String(err?.message || err) }, 502);
       }
     });
