@@ -231,7 +231,6 @@ function render() {
       <label class="po-label" for="po-input">
         <span>基础提示词</span>
         <span class="po-label-right">
-          <span class="po-kbd" title="Enter 直接优化，Shift + Enter 换行">Enter 优化</span>
           <span id="po-count" class="po-count">0 字</span>
         </span>
       </label>
@@ -240,6 +239,7 @@ function render() {
 
       <textarea id="po-extra" class="po-extra" rows="1" spellcheck="false"
         placeholder="可选：补充要求，如「面向零基础」「控制在 300 字内」"></textarea>
+      <p class="po-kbd" title="Enter 直接优化">Shift + Enter 换行</p>
 
       <div class="po-actions">
         <button id="po-run" class="po-btn primary" type="button"><span class="po-btn-tx" id="po-run-tx">优化</span></button>
