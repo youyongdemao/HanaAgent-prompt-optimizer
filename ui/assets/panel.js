@@ -366,18 +366,18 @@ function render() {
   const pickedFixes = new Set();
   let customFixes = loadCustomFixes();
 
-  // 只在高度真的变了才上报。以前每次都发，宿主反复重排，滚动位置会被打回顶部。
-  let lastReportedHeight = 0;
+  // 高度只上报一次。宿主每次重排都会把滚动位置打回顶部，而且内容一变就重排，
+  // 等于下面那些按钮永远点不顺。宁可让卡片自己滚（内容超出时内部滚动），
+  // 也不再去叫宿主。
+  let heightReported = false;
   fitHeight = () => {
-    // 取两者较大值：body 有 min-height:100%，只读 body 会在内容比视口矮时
-    // 回一个等于视口的高，宿主收到「高度没变」就不会再调窗口。
+    if (heightReported) return;
     const h = Math.ceil(
       Math.max(document.body.scrollHeight || 0, document.documentElement.scrollHeight || 0),
     );
     if (h <= 120) return;
-    if (Math.abs(h - lastReportedHeight) < 2) return;
-    lastReportedHeight = h;
-    hana.ui.resize({ height: h });
+    heightReported = true;
+    hana.ui.resize({ height: Math.min(h, 760) });
   };
 
   const setError = (msg) => {
@@ -398,22 +398,16 @@ function render() {
     fitHeight();
   };
 
-  /** 结果框跟着内容长高 */
+  /** 结果框高度交给 CSS（min-height / max-height），JS 不再插手：
+      反复改高度会让页面瞬时塌陷，宿主滚动位置就被打回顶部了。 */
   const growResult = () => {
-    resultEl.style.height = "auto";
-    resultEl.style.height = `${Math.min(360, Math.max(140, resultEl.scrollHeight))}px`;
     fitHeight();
   };
 
   // rAF 句柄：流式期间跟着滚到底用它合帧
   let growRaf = 0;
 
-  // 生成期间把结果框高度钉住：它一直在长，每长一次就上报一次高度，
-  // 等于一秒钟叫醒宿主好几次，滚动位置全给抖掉了。改成内部滚动 + 跟着滚到底。
-  const STREAM_BOX_HEIGHT = 240;
-  const pinResultHeight = () => {
-    resultEl.style.height = `${STREAM_BOX_HEIGHT}px`;
-  };
+  // 生成期间内容一直变长，只把结果框自己滚到底，不动页面高度
   const keepResultAtBottom = () => {
     resultEl.scrollTop = resultEl.scrollHeight;
   };
@@ -621,8 +615,6 @@ function render() {
     resultWrap.hidden = false;
     resultTitleEl.textContent = isRevise ? "修改中" : "生成中";
     lenInfoEl.textContent = "";
-    // 先稳着来：生成期间高度不变，内容在里面滚
-    pinResultHeight();
     fitHeight();
 
     abortCtrl = new AbortController();
