@@ -326,11 +326,6 @@ body {
   color: var(--text-muted, var(--text));
 }
 
-.st-btn-accent {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  color: color-mix(in srgb, var(--accent) 85%, var(--text));
-}
-
 .fx-row:last-child {
   border-bottom: 0;
 }
@@ -435,13 +430,19 @@ body {
 
 .fx-switch input:checked + .fx-switch-track::after { transform: translateX(14px); }
 
-/* 底部按钮行：和上面那张列表连成一体 */
+/* 底部操作行：和上面那张列表连成一体。
+   操作按钮靠右成组，状态文字贴最左（margin-right:auto 把它顶过去），
+   这样按钮位置不随状态文字长短左右移动。 */
 .fx-foot {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 12px;
-  border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  padding: 9px 16px;
+}
+.fx-foot .st-status {
+  margin-right: auto;
+  min-width: 0;
 }
 /* ── 提示词清单：一条一行，两个框并排 ──
    行内顺序：× ｜ 提示词框 ｜ 说明框 ｜ 开关。两个框都带边框，聚焦时走主题色。 */
@@ -500,24 +501,6 @@ body {
 
 .fx-row:last-child { border-bottom: 0; }
 
-.fx-row + .fx-row { position: relative; }
-
-.fx-row + .fx-row::before,
-.fx-foot::before {
-  content: "";
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  top: 0;
-  height: 1px;
-  background: color-mix(in srgb, var(--text) 9%, transparent);
-}
-
-.fx-foot {
-  position: relative;
-  border-top: 0;
-  padding: 9px 16px;
-}
 /* ── 首行：「根据内容主题推荐」开关 ──
    它就是清单的第一行，不另画框、不画分隔线：左右内边距与字号都走 .fx-row /
    .fx-input-label 同一套值，右侧开关才会和下面每一行的开关严格对齐
@@ -540,11 +523,6 @@ body {
 .fx-input,
 .fx-input:focus {
   background: none;
-}
-/* ── 清单里不再画行间分隔线 ── */
-.fx-row + .fx-row::before,
-.fx-foot::before {
-  display: none;
 }
 /* ── 清单小标题：与「根据内容主题推荐」同一级的子项标题 ──
    「推荐」与「清单」是两个不同的子项，中间画一条分割线；
