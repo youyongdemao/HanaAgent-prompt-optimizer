@@ -4,7 +4,7 @@
 import { hana } from "./sdk.js";
 import { apiUrl, appHeaders } from "./app-api.js";
 import { loadActiveFixes, loadSuggest, pullConfig, composeChips, SUGGEST_MIN_CHARS } from "./fixes.js";
-import { allStyles, loadCustomStyles, pullStyles } from "./styles.js";
+import { allStyles, loadStyles, pullStyles } from "./styles.js";
 
 async function toast(message, type = "info") {
   try {
@@ -325,7 +325,7 @@ function render() {
 
   let style = "general";
   // 用户自定义的场景：本机缓存一份，真身在 App 那一侧（启动后拉一次对齐）
-  let customStyles = loadCustomStyles();
+  let customStyles = loadStyles();
   const stylesEl = document.getElementById("po-styles");
   /** 顶上那排场景胶囊：内置在前，自定义接在后面 */
   const renderStyleChips = () => {

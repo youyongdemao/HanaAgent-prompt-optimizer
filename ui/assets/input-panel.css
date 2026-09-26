@@ -1,0 +1,172 @@
+/* assets/input-panel.css — 输入框上方「提示词优化」面板的外壳
+   挂载位：app/input.panels（hana.surface slot = input-panel）。
+   卡片本体由 panel.css / panel.js 提供（和 card.html 用的是同一份资源），
+   这里只画三样东西：玻璃容器、顶栏、收起/展开。
+
+   高度策略：iframe 高度固定（收起 38px / 展开 380px），卡片内容在 .poip-body 里自己滚，
+   所以面板不会因为卡片内容长而越长越高。
+*/
+
+/* 覆盖 panel.css 的页面底色：面板要透出宿主会话，毛玻璃才成立 */
+html,
+body {
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+.poip {
+  /* 圆角归零：面板铺满整个 iframe，只要留圆角就必然有四个盖不到的区域，
+     那四块露出来的就是底下那层方角（宿主的矩形底 / backdrop-filter 的方形图层）。
+     要和宿主窗口完全重合，只能不留圆角。想恢复就改这一个值。 */
+  --poip-r: 0px;
+  --poip-ease: cubic-bezier(.22, .75, .25, 1);
+  --poip-line: color-mix(in srgb, var(--text) 12%, transparent);
+  --poip-line-2: color-mix(in srgb, var(--text) 18%, transparent);
+  --poip-fill-2: color-mix(in srgb, var(--text) 8%, transparent);
+  --poip-ink-faint: var(--text-muted, var(--text-light, var(--text)));
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--poip-line-2);
+  border-radius: var(--poip-r);
+  /* 底色取主题里「抬起来的卡片」那一档（--bg-card），而不是页面底（--bg）：
+     用 --bg 时面板等于给会话压了一层暗膜，读起来比周围更深。
+     不透明度给到 86%：太透会把底下的内容搅进来，颜色就发闷了。 */
+  background: color-mix(in srgb, var(--bg-card, var(--bg, #ffffff)) 86%, transparent);
+  /* 不画外投影：面板铺满整个 iframe，圆角处留出的空隙会把投影卡成四个黑角。
+     层次改用一条边框 + 内侧高光来表达。 */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10);
+  transition: background .24s, border-color .24s;
+}
+
+@supports ((-webkit-backdrop-filter: blur(2px)) or (backdrop-filter: blur(2px))) {
+  .poip {
+    /* 只留模糊，不加 saturate：饱和度增强会拉动整体色相，在暗色主题下看着发闷 */
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+  }
+}
+
+/* ── 顶栏 ── */
+.poip-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 9px 0 13px;
+  height: 37px;
+  flex: 0 0 auto;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  /* 悬停不压暗：这一层贴在输入框上方，变色比不动更抢眼 */
+  background: transparent;
+}
+
+.poip[data-expanded="false"] .poip-head {
+  height: 100%;
+}
+
+.poip-name {
+  font-weight: 600;
+  letter-spacing: .2px;
+  flex: 0 0 auto;
+  color: var(--text);
+}
+
+.poip-tools {
+  margin-left: auto;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.poip-icon {
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: var(--poip-ink-faint);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .16s, color .16s, border-color .16s;
+}
+
+.poip-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.poip-icon:hover {
+  color: var(--text);
+  background: var(--poip-fill-2);
+  border-color: var(--poip-line);
+}
+
+/* 收起时箭头朝下（点它展开），展开时朝上（点它收起） */
+#toggle svg {
+  transition: transform .2s var(--poip-ease);
+}
+
+.poip[data-expanded="true"] #toggle svg {
+  transform: rotate(180deg);
+}
+
+/* ── 主体：卡片在这里，自己滚 ── */
+.poip-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.poip[data-expanded="false"] .poip-body {
+  display: none;
+}
+
+/* panel.css 里 `*::-webkit-scrollbar{display:none}` 会把滚动条抹掉。
+   这一层自己滚，得让人看得出还能往下翻。 */
+.poip-body::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+.poip-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.poip-body::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+  border-radius: 999px;
+}
+
+.poip-body::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text) 34%, transparent);
+}
+
+.poip-body {
+  scrollbar-width: thin;
+}
+
+/* 卡片本体在 #root 里；它的 .po 自带 16/18/18 的内边距，这里不再叠加 */
+.poip-body > #root {
+  min-height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poip,
+  .poip-icon,
+  #toggle svg {
+    transition: none;
+  }
+}

@@ -573,10 +573,17 @@ body {
   padding: 9px 16px;
 }
 
-/* ── 自定义场景那块：与提示词清单同构 ──
-   每条少一个开关，末列留等宽空位，两栏才与上面几行同列。 */
-.fx-row.st-row {
-  grid-template-columns: auto 132px minmax(0, 1fr) 34px;
+/* ── 场景清单：与提示词清单同构，直接用同一套列宽（× ｜ 名字 ｜ 说明 ｜ 开关）── */
+
+/* 「通用」是兜底场景，删除按钮置灰不可点 */
+.fx-del:disabled {
+  opacity: .28;
+  cursor: default;
+}
+
+.fx-del:disabled:hover {
+  color: inherit;
+  border-color: color-mix(in srgb, var(--text) 14%, transparent);
 }
 
 /* ── 新增一行：清单下面、按钮上面 ──

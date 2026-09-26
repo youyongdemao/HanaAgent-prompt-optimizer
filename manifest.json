@@ -2,7 +2,7 @@
   "manifestVersion": 2,
   "id": "prompt-optimizer",
   "name": "提示词优化",
-  "version": "1.0.0",
+  "version": "1.0.x-dev-beta.1",
   "entry": "index.js",
   "icon": "assets/icon.png",
   "description": "把随手写下的基础提示词一键重写成更符合模型直觉的结构化提示词。支持通用、编程、写作、图像、分析、Agent 六种场景。",
@@ -11,7 +11,10 @@
     "app/tools.expose-to-model",
     "app/models.infer",
     "app/ui.clipboard-write",
-    "app/ui.open-external"
+    "app/ui.open-external",
+    "app/input.panels",
+    "app/input.status",
+    "app/hooks.observe"
   ],
   "network": {
     "allowedHosts": [
@@ -24,6 +27,16 @@
     "maxResponseBytes": 4194304
   },
   "contributes": {
+    "ui": {
+      "inputStatus": [
+        {
+          "id": "open",
+          "title": "在输入框上方打开提示词优化面板",
+          "icon": "sync",
+          "toolName": "open_optimizer_panel"
+        }
+      ]
+    },
     "cards": [
       {
         "id": "panel",
@@ -33,7 +46,7 @@
         "cardForm": "flush",
         "titlebar": "translucent",
         "face": {
-          "image": "assets/cover.svg"
+          "image": "assets/cover.webp"
         }
       }
     ],

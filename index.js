@@ -16,7 +16,8 @@ import {
   buildUserMessage,
   clampInt,
   normalizeStyle,
-  sanitizeCustomStyles,
+  sanitizeStyles,
+  builtinStyles,
   isRevisableAssistant,
   stripWrapping,
   DEFAULT_MAX_TOKENS,
@@ -39,10 +40,38 @@ function readVersion() {
   }
 }
 
-/** 用户自定义的优化场景存在应用存储里；读不到就当作没有（退回内置六个） */
-async function readCustomStyles(sdk) {
+/**
+ * 把应用存储里那份场景配置发成一份完整清单。
+ * 旧格式（只存了自定义那几条的数组）补上内置六个；空的一律当成没配过（null），
+ * 让前端拿回默认六个——默认场景不该被一份空配置凭空盖掉。
+ */
+function normalizeStoredStyles(raw) {
+  if (raw == null) return null;
+  // 新格式：{ version: 2, items: [...] }
+  if (!Array.isArray(raw) && Array.isArray(raw?.items)) {
+    const clean = sanitizeStyles(raw.items);
+    return clean.length ? clean : null;
+  }
+  // 旧格式：数组里只有自定义那几条
+  if (Array.isArray(raw)) {
+    const legacy = sanitizeStyles(raw);
+    if (!legacy.length) return null;
+    const base = builtinStyles();
+    const seen = new Set(base.map((s) => s.id));
+    for (const item of legacy) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      base.push(item);
+    }
+    return base;
+  }
+  return null;
+}
+
+/** 用户的场景清单存在应用存储里；读不到就当作空（后端按内置那套兜底） */
+async function readStyles(sdk) {
   try {
-    return sanitizeCustomStyles(await sdk.storage.global.get("styles", []));
+    return normalizeStoredStyles(await sdk.storage.global.get("styles", null)) ?? [];
   } catch {
     return [];
   }
@@ -100,6 +129,72 @@ export default defineApp(async (sdk) => {
     logger: sdk.logger,
     network: { fetch: (input, init) => sdk.network.fetch(input, init) },
   };
+
+  // ── 输入框上方的常驻面板（app/input.panels）─────────────────────────────
+  // 两条事实决定了入口怎么挂：
+  //   1. ctx.userInteraction.show 只认「稳定 sessionId」（manifest 库里那条 sess_xxx），
+  //      而 hooks 推来的 session.sessionId 是会话 jsonl 文件的内部 id，两套 id 对不上。
+  //   2. 输入栏按钮点下去时，宿主在工具的 context 里给的是稳定 sessionId。
+  // 所以：以输入栏按钮为入口拿稳定 id，顺手把 sessionPath -> 稳定 id 记下来，
+  // 之后 hooks 再推同一个会话就能自动挂了。
+  const PANEL_ID = "optimizer";
+  const panelShown = new Set();
+  const stableIdByPath = new Map();
+  const seenPaths = new Set();
+
+  /** 点击上下文里拿到稳定 id 后，把 path -> id 记下来，供 hooks 复用 */
+  function rememberSession(context) {
+    const sessionId = typeof context?.sessionId === "string" ? context.sessionId : "";
+    const sessionPath = typeof context?.sessionPath === "string" ? context.sessionPath : "";
+    if (sessionId && sessionPath) stableIdByPath.set(sessionPath, sessionId);
+    return sessionId;
+  }
+
+  async function showPanel(sessionId) {
+    if (!sessionId) return false;
+    try {
+      await sdk.userInteraction.show({
+        sessionId,
+        id: PANEL_ID,
+        title: "提示词优化",
+        contentFrame: { route: "/input-panel.html" },
+        // 默认收成一条窄栏，点一下才展开，不占输入区的视觉重量
+        presentation: { height: 380, collapsedHeight: 38, expanded: false },
+      });
+      return true;
+    } catch (err) {
+      await sdk.logger.warn(
+        `提示词面板展示失败：${String(err?.code || err?.name || "error")} ${String(err?.message || err)}`,
+      );
+      return false;
+    }
+  }
+
+  /** 每个会话只自动挂一次；用户手动关掉后不会下一轮又冒出来 */
+  async function ensurePanel(session) {
+    const sessionPath = typeof session?.sessionPath === "string" ? session.sessionPath : "";
+    // hooks 给的 sessionId 用不了（见上面那段注释），只拿 path 去查已知映射
+    const sessionId = sessionPath ? stableIdByPath.get(sessionPath) : null;
+    if (!sessionId) {
+      if (sessionPath && !seenPaths.has(sessionPath)) {
+        seenPaths.add(sessionPath);
+        await sdk.logger.info("提示词面板：这个会话还没点过入口按钮，跳过自动挂载");
+      }
+      return;
+    }
+    if (panelShown.has(sessionId)) return;
+    if (await showPanel(sessionId)) {
+      panelShown.add(sessionId);
+      await sdk.logger.info(`提示词面板已挂到输入框上方：${sessionId}`);
+    }
+  }
+
+  try {
+    await sdk.hooks.on("agent/session-start", (event) => ensurePanel(event?.session));
+    await sdk.hooks.on("agent/settled", (event) => ensurePanel(event?.session));
+  } catch (err) {
+    await sdk.logger.warn(`提示词面板钩子注册失败：${String(err?.message || err)}`);
+  }
 
   await sdk.routes.register((app) => {
     app.get("/health", (c) => c.json({ ok: true, app: "prompt-optimizer" }));
@@ -183,15 +278,12 @@ export default defineApp(async (sdk) => {
       }
     });
 
-    // 自定义优化场景（名字 + 一句取向说明）。和提示词清单同理：存在 App 这一侧，
+    // 场景清单（名字 + 一句取向说明 + 开关）。和提示词清单同理：存在 App 这一侧，
     // 卡片与设置页跑在各自的 iframe 里，只有走这里两边才看得到同一份。
     app.get("/styles", async (c) => {
       try {
-        const items = await sdk.storage.global.get("styles", null);
-        return c.json({
-          ok: true,
-          items: Array.isArray(items) ? sanitizeCustomStyles(items) : null,
-        });
+        const raw = await sdk.storage.global.get("styles", null);
+        return c.json({ ok: true, items: normalizeStoredStyles(raw) });
       } catch (err) {
         return c.json({ ok: false, error: "READ_FAILED", message: String(err?.message || err) }, 500);
       }
@@ -206,8 +298,9 @@ export default defineApp(async (sdk) => {
       }
       if (!Array.isArray(body?.items)) return c.json({ ok: false, error: "BAD_BODY" }, 400);
       try {
-        const clean = sanitizeCustomStyles(body.items);
-        await sdk.storage.global.set("styles", clean);
+        const clean = sanitizeStyles(body.items);
+        // 存成带版本号的形状：以后再读到裸数组，就知道该走迁移
+        await sdk.storage.global.set("styles", { version: 2, items: clean });
         return c.json({ ok: true, count: clean.length });
       } catch (err) {
         return c.json({ ok: false, error: "WRITE_FAILED", message: String(err?.message || err) }, 500);
@@ -235,7 +328,7 @@ export default defineApp(async (sdk) => {
         );
       }
 
-      const customStyles = await readCustomStyles(sdk);
+      const customStyles = await readStyles(sdk);
       const style = normalizeStyle(body?.style, customStyles);
       const extra = typeof body?.extra === "string" ? body.extra : "";
       const maxTokens = clampInt(body?.maxTokens, 256, 4096, DEFAULT_MAX_TOKENS);
@@ -347,6 +440,40 @@ export default defineApp(async (sdk) => {
       });
     });
 
+    // 面板页右上角的「关闭」：页面自己摘不掉面板，只能请应用后端走 dismiss。
+    // 只允许关掉本应用展示过的那个会话的面板。
+    app.post("/close-panel", async (c) => {
+      let body = {};
+      try {
+        body = await c.req.json();
+      } catch {
+        body = {};
+      }
+      const sessionId = typeof body?.sessionId === "string" ? body.sessionId : "";
+      if (!sessionId || !panelShown.has(sessionId)) return c.json({ ok: false, error: "NOT_SHOWN" }, 400);
+      try {
+        await sdk.userInteraction.dismiss({ sessionId, id: PANEL_ID });
+        panelShown.delete(sessionId);
+        return c.json({ ok: true });
+      } catch (err) {
+        await sdk.logger.warn(`关闭提示词面板失败：${String(err?.message || err)}`);
+        return c.json({ ok: false, error: "DISMISS_FAILED", message: String(err?.message || err) }, 500);
+      }
+    });
+
+    // 面板页面的诊断回传：iframe 里的 console 看不到，只能借应用后端写进 Hana 日志
+    app.post("/client-log", async (c) => {
+      let body = {};
+      try {
+        body = await c.req.json();
+      } catch {
+        body = {};
+      }
+      const message = typeof body?.message === "string" ? body.message.slice(0, 500) : "";
+      if (message) await sdk.logger.info(`[panel] ${message}`);
+      return c.json({ ok: true });
+    });
+
     // 检查更新：只查 GitHub 上最新的已发布版本，安装仍走「设置 → 扩展」
     registerUpdateRoutes(app, ctx);
   });
@@ -380,7 +507,7 @@ export default defineApp(async (sdk) => {
         throw new Error(`提示词太长，上限 ${MAX_INPUT_CHARS} 字。`);
       }
 
-      const customStyles = await readCustomStyles(sdk);
+      const customStyles = await readStyles(sdk);
       const styleId = normalizeStyle(style, customStyles);
       const optimized = await sampleOptimized(sdk, {
         text: source,
@@ -400,6 +527,27 @@ export default defineApp(async (sdk) => {
           optimizedLength: optimized.length,
         },
       };
+    },
+  });
+
+  // 输入栏按钮的目标：把面板挂到当前会话。宿主在 ui-actions 触发的工具调用里
+  // 给的是稳定 sessionId（这正是 show 唯一收的那种），所以不需要任何跨会话读取权限。
+  await sdk.tools.register({
+    name: "open_optimizer_panel",
+    description: "在当前会话的输入框上方打开「提示词优化」面板。由输入栏那颗按钮调用，不面向对话。",
+    parameters: { type: "object", properties: {} },
+    execute: async ({ context } = {}) => {
+      const sessionId = rememberSession(context);
+      if (!sessionId) {
+        const keys = context ? Object.keys(context).join(",") : "无";
+        await sdk.logger.warn(`open_optimizer_panel：上下文里没有稳定 sessionId（字段：${keys}）`);
+        throw new Error("拿不到稳定会话标识，面板无法挂载。");
+      }
+      const ok = await showPanel(sessionId);
+      if (!ok) throw new Error("面板打开失败，请查看 Hana 日志。");
+      panelShown.add(sessionId);
+      await sdk.logger.info(`提示词面板已挂到输入框上方：${sessionId}`);
+      return { content: [{ type: "text", text: "提示词优化面板已打开（输入框上方）。" }] };
     },
   });
 

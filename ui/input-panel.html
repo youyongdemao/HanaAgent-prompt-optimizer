@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>提示词优化</title>
+  <script>
+    // 与 card.html 同一套主题引导：宿主只在主题“变化”时推送、不推初始值，
+    // 页面需要自行从 hana-css 加载一次，之后交给 panel.js 的 theme-sync 跟随。
+    (() => {
+      const advertisedUrl = new URLSearchParams(window.location.search).get("hana-css");
+      if (!advertisedUrl) return;
+      try {
+        const stylesheetUrl = new URL(advertisedUrl, window.location.href);
+        if (
+          stylesheetUrl.origin !== window.location.origin ||
+          (stylesheetUrl.protocol !== "http:" && stylesheetUrl.protocol !== "https:") ||
+          stylesheetUrl.pathname !== "/api/apps/theme.css" ||
+          !stylesheetUrl.searchParams.get("theme") ||
+          stylesheetUrl.username ||
+          stylesheetUrl.password ||
+          stylesheetUrl.hash
+        ) {
+          throw new Error("invalid Hana theme stylesheet URL");
+        }
+        const link = document.createElement("link");
+        link.id = "po-theme-css";
+        link.rel = "stylesheet";
+        link.href = stylesheetUrl.href;
+        document.head.appendChild(link);
+      } catch (error) {
+        console.warn("[prompt-optimizer] 无法加载 Hana 主题样式", error);
+      }
+    })();
+  </script>
+  <!-- 卡片本体：与 card.html 逐字相同的两份资源，所以面板看起来就是那张卡片 -->
+  <link rel="stylesheet" href="./assets/panel.css">
+  <!-- 面板外壳：只有玻璃容器、顶栏和收起/展开的规则 -->
+  <link rel="stylesheet" href="./assets/input-panel.css">
+</head>
+<body data-hana-theme="inherit" data-surface="card">
+  <div id="poip" class="poip" data-expanded="false">
+    <div class="poip-head" id="bar" role="button" tabindex="0" title="展开 / 收起">
+      <span class="poip-name">提示词优化</span>
+      <span class="poip-tools">
+        <button class="poip-icon" id="toggle" type="button" title="收起 / 展开" aria-label="收起或展开面板">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 15l6-6 6 6" />
+          </svg>
+        </button>
+        <button class="poip-icon" id="close" type="button" title="关闭面板" aria-label="关闭面板">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      </span>
+    </div>
+
+    <div class="poip-body" id="body">
+      <div id="root" data-surface="card"></div>
+    </div>
+  </div>
+
+  <script>
+    // 兜底：脚本若未执行就报错，至少把失败摆到界面上
+    window.addEventListener("error", function (e) {
+      var root = document.getElementById("root");
+      if (root && !root.innerHTML) {
+        root.textContent = "面板加载失败：" + ((e && e.message) || "脚本错误");
+      }
+    });
+  </script>
+  <script type="module" src="./assets/input-panel.js"></script>
+  <script type="module" src="./assets/panel.js"></script>
+</body>
+</html>
