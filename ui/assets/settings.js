@@ -220,7 +220,7 @@ function renderStyles() {
   if (!customStyles.length) {
     const empty = document.createElement("p");
     empty.className = "fx-empty";
-    empty.textContent = "还没有自己的场景呢~";
+    empty.textContent = "还没有自己的场景~";
     list.appendChild(empty);
   }
 
