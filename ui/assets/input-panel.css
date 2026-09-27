@@ -8,7 +8,13 @@
 */
 
 /* 覆盖 panel.css 的页面底色：面板要透出宿主会话，毛玻璃才成立 */
-html,
+html {
+  height: 100%;
+  /* 四角托底：iframe 是矩形，圆角外那一小块如果留透明，合成时可能变成黑角。
+     铺上会话底色（--bg），圆角外侧就与宿主背景同色，不会出现尖角。 */
+  background: var(--bg, #f8f4ed);
+}
+
 body {
   height: 100%;
   background: transparent;
@@ -16,10 +22,12 @@ body {
 }
 
 .poip {
-  /* 圆角归零：面板铺满整个 iframe，只要留圆角就必然有四个盖不到的区域，
-     那四块露出来的就是底下那层方角（宿主的矩形底 / backdrop-filter 的方形图层）。
-     要和宿主窗口完全重合，只能不留圆角。想恢复就改这一个值。 */
-  --poip-r: 0px;
+  /* 圆角取宿主卡片那一档：外壳用的是 --radius-lg（12px）+ --corner-radius-scale。
+     iframe 里拿不到宿主的结构 token —— /api/apps/theme.css 只发颜色变量，
+     所以这里按 continuous-corners.css 的同一套规则写死：
+     曲率半径 = 基准 12px × 1.8408964152537137（超椭圆需要更大的半径才与圆角等视）。 */
+  --poip-r: 12px;
+  --poip-squircle: 1.8408964152537137;
   --poip-ease: cubic-bezier(.22, .75, .25, 1);
   --poip-line: color-mix(in srgb, var(--text) 12%, transparent);
   --poip-line-2: color-mix(in srgb, var(--text) 18%, transparent);
@@ -37,8 +45,8 @@ body {
      用 --bg 时面板等于给会话压了一层暗膜，读起来比周围更深。
      不透明度给到 86%：太透会把底下的内容搅进来，颜色就发闷了。 */
   background: color-mix(in srgb, var(--bg-card, var(--bg, #ffffff)) 86%, transparent);
-  /* 不画外投影：面板铺满整个 iframe，圆角处留出的空隙会把投影卡成四个黑角。
-     层次改用一条边框 + 内侧高光来表达。 */
+  /* 不画外投影：面板铺满 iframe，超出 iframe 边界的影子会被裁掉，剩下的只有四条边中段，
+     四个角是空的，比不画更怪。层次靠边框加内侧高光。 */
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10);
   transition: background .24s, border-color .24s;
 }
@@ -48,6 +56,15 @@ body {
     /* 只留模糊，不加 saturate：饱和度增强会拉动整体色相，在暗色主题下看着发闷 */
     -webkit-backdrop-filter: blur(20px);
     backdrop-filter: blur(20px);
+  }
+}
+
+/* 宿主卡片是超椭圆圆角。支持时把半径换成等效曲率，形状才真的一致；
+   不支持时留在上面的 12px 普通圆角，也是合理值。 */
+@supports (corner-shape: squircle) {
+  .poip {
+    border-radius: calc(var(--poip-r) * var(--poip-squircle));
+    corner-shape: squircle;
   }
 }
 
