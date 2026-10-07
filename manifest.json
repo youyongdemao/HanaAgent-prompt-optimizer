@@ -2,7 +2,7 @@
   "manifestVersion": 2,
   "id": "prompt-optimizer",
   "name": "提示词优化",
-  "version": "1.0.x-dev-beta.1",
+  "version": "1.0.0",
   "entry": "index.js",
   "icon": "assets/icon.png",
   "description": "把随手写下的基础提示词一键重写成更符合模型直觉的结构化提示词。支持通用、编程、写作、图像、分析、Agent 六种场景。",
