@@ -706,6 +706,8 @@ function render() {
   const renderFixLists = () => {
     reviseQuick.replaceChildren();
     for (const fix of fixes) reviseQuick.appendChild(makeFixChip(fix));
+    // 推荐项可能换行；等布局完成后同步卡片高度，避免宿主沿用旧高度裁掉末行。
+    requestAnimationFrame(fitHeight);
   };
 
   /** 只改被点那个的样式，不重建整排：重建会让连点丢事件，也会把焦点和按压态一起抹掉 */

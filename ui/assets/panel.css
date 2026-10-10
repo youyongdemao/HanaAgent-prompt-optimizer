@@ -1294,10 +1294,9 @@ body[data-color-mode="dark"] .po-error,
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* ── 窄屏（结果区改成上下堆叠）：按钮在上，改法选项在下，最多两行 ──
-   宽屏仍按原样并排，不动。
-   堆叠时两块之间比并排时多留一点：并排有一整行的高度差帮忙分区，
-   堆起来就得靠空白分，不然按钮和候选词粘成一团。 */
+/* ── 窄屏（结果区改成上下堆叠）：按钮在上，改法选项在下 ──
+   选项行数由内容决定，不能固定高度裁掉后续选项。
+   堆叠时多留一点空白，避免按钮和候选词粘在一起。 */
 @media (max-width: 560px) {
   .po-revise-tools {
     flex-direction: column;
@@ -1313,8 +1312,6 @@ body[data-color-mode="dark"] .po-error,
 
   .po-revise-tools .po-revise-quick {
     order: 2;
-    max-height: 60px;
-    overflow: hidden;
   }
 }
 /* ── 标题行也得允许收缩 ──
