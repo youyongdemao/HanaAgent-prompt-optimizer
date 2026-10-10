@@ -190,6 +190,42 @@ body[data-color-mode="dark"] .po,
   height: 36px;
 }
 
+/* 补充要求的最近使用：无记录时整个区域隐藏，长句只截显示，不截实际填入内容。 */
+.po-extra-history {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  margin-top: -6px;
+}
+
+.po-extra-history[hidden] {
+  display: none;
+}
+
+.po-extra-history-label {
+  flex: none;
+  padding-top: 4px;
+  font-size: 10.5px;
+  color: var(--po-ink-faint);
+  white-space: nowrap;
+}
+
+.po-extra-history-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.po-extra-history .po-extra-history-chip {
+  max-width: min(210px, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 3px 9px;
+  font-size: 10.5px;
+}
+
 .po-input:focus,
 .po-extra:focus {
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);

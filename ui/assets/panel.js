@@ -5,6 +5,7 @@ import { hana } from "./sdk.js";
 import { apiUrl, appHeaders } from "./app-api.js";
 import { loadActiveFixes, loadSuggest, pullConfig, composeChips, SUGGEST_MIN_CHARS } from "./fixes.js";
 import { allStyles, loadStyles, pullStyles } from "./styles.js";
+import { loadExtraHistory, rememberExtra } from "./extra-history.js";
 
 async function toast(message, type = "info") {
   try {
@@ -235,6 +236,10 @@ function render() {
 
       <textarea id="po-extra" class="po-extra" rows="1" spellcheck="false"
         placeholder="可选：补充要求，如「面向零基础」" title="可选：补充要求，如「面向零基础」「控制在 300 字内」"></textarea>
+      <div id="po-extra-history" class="po-extra-history" role="group" aria-label="最近使用的补充要求" hidden>
+        <span class="po-extra-history-label">最近使用</span>
+        <div id="po-extra-history-items" class="po-extra-history-items"></div>
+      </div>
       <p class="po-kbd" title="Enter 直接优化">Shift + Enter 换行</p>
 
       <div class="po-actions">
@@ -300,6 +305,29 @@ function render() {
 
   const inputEl = document.getElementById("po-input");
   const extraEl = document.getElementById("po-extra");
+  const extraHistoryEl = document.getElementById("po-extra-history");
+  const extraHistoryItems = document.getElementById("po-extra-history-items");
+  let extraHistory = loadExtraHistory();
+  const renderExtraHistory = () => {
+    extraHistoryItems.replaceChildren();
+    extraHistoryEl.hidden = extraHistory.length === 0;
+    for (const text of extraHistory) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "po-chip-sm po-extra-history-chip";
+      btn.textContent = text;
+      btn.title = text;
+      btn.addEventListener("click", () => {
+        extraEl.value = text;
+        autoGrow(extraEl);
+        extraEl.focus();
+        extraEl.setSelectionRange(extraEl.value.length, extraEl.value.length);
+        fitHeight();
+      });
+      extraHistoryItems.appendChild(btn);
+    }
+    requestAnimationFrame(fitHeight);
+  };
   const countEl = document.getElementById("po-count");
   const runBtn = document.getElementById("po-run");
   const runTx = document.getElementById("po-run-tx");
@@ -853,6 +881,7 @@ function render() {
       inputEl.focus();
       return;
     }
+    const extra = extraEl.value.trim();
     const isRevise = Boolean(revise);
     const isRewrite = mode === "rewrite";
     // 重写（「+」或没写要求的改面）允许没有基底：初版本来就是从原文生成的，
@@ -898,7 +927,7 @@ function render() {
         body: JSON.stringify({
           text,
           style,
-          extra: extraEl.value,
+          extra,
           revise,
           priorAssistant: lastAssistant,
         }),
@@ -993,6 +1022,10 @@ function render() {
               inspecting = null;
             }
             lastAssistant = event.assistant || null;
+            if (extra) {
+              extraHistory = rememberExtra(extra, extraHistory);
+              renderExtraHistory();
+            }
             lenInfoEl.textContent = `${sourceText.length} → ${finalText.length} 字`;
             renderPanes();
             growResult();
@@ -1230,6 +1263,7 @@ function render() {
 
   syncCount();
   syncRunButton();
+  renderExtraHistory();
   renderFixLists();
   renderVersionTabs();
   requestAnimationFrame(fitHeight);
