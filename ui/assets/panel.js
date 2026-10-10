@@ -1121,14 +1121,16 @@ function render() {
       { passive: false },
     );
   }
-  inputEl.addEventListener("keydown", (e) => {
-    // 聊天框那套：Enter 直接优化，Shift + Enter 换行；
-    // isComposing 是输入法选词那一回车，不能当成提交
-    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+  // 基础提示词与补充要求共用同一套键位：Enter 优化，Shift + Enter 换行。
+  // 输入法确认候选词的 Enter 不能误当作提交（部分输入法会报 keyCode 229）。
+  const submitOnEnter = (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
       e.preventDefault();
       void runStream("");
     }
-  });
+  };
+  inputEl.addEventListener("keydown", submitOnEnter);
+  extraEl.addEventListener("keydown", submitOnEnter);
 
   runBtn.addEventListener("click", () => {
     if (streaming) {
