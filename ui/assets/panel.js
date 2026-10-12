@@ -3,6 +3,7 @@
 // 应用自己的后端接口走 app-api.js（/api/apps/prompt-optimizer/routes/）。
 import { hana } from "./sdk.js";
 import { apiUrl, appHeaders } from "./app-api.js";
+import { initUpdateNotice } from "./update-notice.js";
 import { loadActiveFixes, loadSuggest, pullConfig, composeChips, SUGGEST_MIN_CHARS } from "./fixes.js";
 import { allStyles, loadStyles, pullStyles } from "./styles.js";
 import { loadExtraHistory, rememberExtra } from "./extra-history.js";
@@ -1333,3 +1334,7 @@ window.addEventListener("resize", () => {
   syncTheme();
   fadeGlow();
 });
+
+// 进页面自检一次更新：有新版才弹窗，没有就什么都不做（与设置页共用同一套弹窗）。
+// 输入框上方的面板（input-panel.html）不弹：它初始只有 38px 高，装不下这张固定定位的弹窗。
+if (!document.getElementById("poip")) initUpdateNotice();

@@ -3,7 +3,7 @@
 // 5 秒内收不到就一律显示「应用加载失败」。
 import { hana } from "./sdk.js";
 import { apiFetch } from "./app-api.js";
-import { openUpdateNotice } from "./update-notice.js";
+import { initUpdateNotice, openUpdateNotice } from "./update-notice.js";
 import { initHostThemeSync } from "./theme-sync.js";
 import { loadFixes, loadSuggest, pullConfig, pushConfig, pushSuggest, DEFAULT_FIXES, newFixId } from "./fixes.js";
 import { loadStyles, defaultStyles, pullStyles, pushStyles, newStyleId, FALLBACK_ID, STYLE_LABEL_MAX } from "./styles.js";
@@ -14,16 +14,11 @@ initHostThemeSync();
 
 const $ = (id) => document.getElementById(id);
 
-/** 版本与仓库地址都来自后端写死的那份，界面不提供修改入口 */
+/** 版本来自后端；GitHub 链接固定指向用户主页，不指向具体仓库 */
 async function load() {
   try {
     const meta = await apiFetch("meta", {}, 8000);
     if (meta?.version) $("aboutVersion").textContent = "v" + meta.version;
-    const link = $("aboutGithub");
-    if (link && typeof meta?.repo === "string" && meta.repo) {
-      link.href = `https://github.com/${meta.repo}`;
-      link.textContent = meta.repo;
-    }
   } catch {
     /* 读不到就保持占位，不打断页面 */
   }
@@ -180,7 +175,10 @@ $("fxSave")?.addEventListener("click", async () => {
 });
 
 renderFx();
+// 「更新」按钮打开检查更新弹窗（窗口自己会查）；进页面也自检一次，有新版才弹。
+// 弹窗本体、自检逻辑与卡片页共用 update-notice.js。
 $("aboutUpdate")?.addEventListener("click", () => openUpdateNotice());
+initUpdateNotice();
 load();
 
 // 清单的真身在 App 那一侧，本地那份只是缓存：启动后拉一次对齐

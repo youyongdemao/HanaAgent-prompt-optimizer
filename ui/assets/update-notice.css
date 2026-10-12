@@ -1,4 +1,4 @@
-/* assets/update-notice.css — 检查更新弹窗（工作台 / 实时用量 / 设置页共用）
+/* assets/update-notice.css — 检查更新弹窗（卡片 / 设置页共用）
    尺寸跟着宿主给的空间走：上限就是视口，空间不够先压更新日志区，操作按钮始终留在窗内。 */
 
 .si-upd {
@@ -23,7 +23,7 @@
 
 /* 设置页的遮罩不画：模糊在这页糊的是自己那块 iframe，压暗又让整页像被关了灯，
    两样都不是这一页需要的东西。元素保留不删，它还是点空白关闭的落点。
-   面板页背景是有内容的一整页，那边两样都保留。 */
+   卡片页背景是有内容的一整页，那边两样都保留。 */
 body.is-settings .si-upd-mask {
   backdrop-filter: none;
   background: transparent;
